@@ -34,13 +34,14 @@ dependencias, configuración ni código Firebase en el proyecto.
 
 ```mermaid
 flowchart LR
-    U["Usuario local"] --> R["React SPA"]
+    U["Usuario autorizado"] --> R["React SPA"]
     R <--> L["localStorage (caché)"]
     R -->|"fetch /api/*"| E["Express"]
     E -->|"SUPABASE_SECRET_KEY"| S["Supabase Data API"]
     S <--> P["PostgreSQL"]
     E -->|"desarrollo"| V["Vite middleware"]
-    E -->|"producción"| D["dist/ estático"]
+    E -->|"producción"| F["Vercel Function /api"]
+    R -->|"producción"| D["dist/ estático en Vercel"]
 ```
 
 Decisiones principales:
@@ -65,6 +66,7 @@ Migraciones aplicadas y guardadas localmente:
 
 - `20260729220505_create_billetera_schema.sql`
 - `20260729220735_add_replace_wallet_snapshot_function.sql`
+- `20260729231215_fix_replace_wallet_snapshot_delete.sql`
 
 Los tipos generados por Supabase están en `src/database.types.ts`.
 
@@ -72,12 +74,15 @@ Los tipos generados por Supabase están en `src/database.types.ts`.
 
 ```text
 .
+├── api/
+│   └── index.ts
 ├── docs/
 │   ├── DESCRIPCION_PAGINA.md
 │   └── ARQUITECTURA_TECNICA.md
 ├── src/
 │   ├── components/
 │   ├── server/
+│   │   ├── app.ts
 │   │   ├── supabase.ts
 │   │   ├── validation.ts
 │   │   └── walletRepository.ts
@@ -92,16 +97,22 @@ Los tipos generados por Supabase están en `src/database.types.ts`.
 ├── .env.local
 ├── index.html
 ├── package.json
-└── server.ts
+├── server.ts
+└── vercel.json
 ```
 
 Responsabilidades:
 
 - `src/App.tsx`: estado de UI, caché local, navegación y llamadas HTTP.
+- `src/server/app.ts`: aplicación Express compartida por el servidor local y
+  la Function de Vercel.
 - `src/server/supabase.ts`: carga segura de entorno y cliente Supabase.
 - `src/server/validation.ts`: validación de presupuesto, gastos y respaldos.
 - `src/server/walletRepository.ts`: consultas y mutaciones de base de datos.
-- `server.ts`: rutas HTTP, manejo de errores y servidor Vite/producción.
+- `server.ts`: arranque local, Vite en desarrollo y archivos estáticos en la
+  ejecución Node tradicional.
+- `api/index.ts`: entrada serverless de Express para Vercel.
+- `vercel.json`: dirige las solicitudes `/api/*` a la Function.
 - `supabase/migrations/`: definición reproducible del esquema remoto.
 
 ## 6. Modelo de datos
@@ -157,9 +168,10 @@ Los avisos `rls_enabled_no_policy` del asesor de Supabase son informativos y
 esperados: la ausencia de políticas es intencional porque ningún cliente público
 debe acceder a las tablas.
 
-La API Express todavía no autentica al usuario. Es segura para uso local, pero
-no debe publicarse directamente en Internet sin autenticación, autorización y
-controles de origen o red.
+La API Express todavía no autentica al usuario por sí misma. El proyecto de
+Vercel mantiene Vercel Authentication activa, de modo que la SPA y `/api/*`
+requieren la sesión autorizada de Vercel. Si esa protección se desactiva, la API
+no debe quedar pública sin autenticación y autorización dentro de la aplicación.
 
 ## 8. Configuración
 
@@ -184,6 +196,10 @@ Reglas:
 
 Si falta configuración, el servidor puede iniciar para mostrar la UI, pero las
 rutas de datos responden `503` con una explicación.
+
+En Vercel, `SUPABASE_URL` y `SUPABASE_SECRET_KEY` están configuradas como
+variables sensibles solo para Producción. No se concedió a Preview acceso a la
+base principal. Cualquier cambio de variables exige un nuevo despliegue.
 
 ## 9. API HTTP
 
@@ -270,20 +286,28 @@ npm start
 `npm start` establece `NODE_ENV=production` y sirve `dist/`.
 El puerto puede cambiarse con `PORT`.
 
+Vercel compila el cliente Vite y publica `api/index.ts` como Function. El
+archivo `vercel.json` conserva las rutas originales bajo `/api/*` al enviarlas
+a esa entrada Express.
+
 ## 13. Verificación realizada
 
 - Node.js y npm instalados mediante Homebrew.
 - Dependencias npm instaladas: 0 vulnerabilidades reportadas.
 - `npm run lint`: correcto.
 - `npm run build`: correcto.
-- Dos migraciones aplicadas correctamente.
+- Tres migraciones aplicadas correctamente.
 - Tablas, restricciones, RLS, privilegios y función RPC inspeccionados.
 - Proyecto Supabase activo y saludable.
-- Base inicial verificada con un presupuesto y cero gastos.
+- Respaldo `respaldo_mis_gastos_2026-07-29.json` importado de forma
+  transaccional y verificado con presupuesto de 1.500.000 COP, 22 gastos
+  activos, 1 gasto en papelera y 580.600 COP gastados.
 - `.env.local` verificado con una clave moderna `sb_secret_` sin exponer su
   contenido.
 - `GET /api/health` verificado con estado `ok` y base `supabase`.
-- `GET /api/data` verificado contra la instantánea inicial de PostgreSQL.
+- `GET /api/data` verificado contra la instantánea restaurada de PostgreSQL.
+- Entrada Express para Vercel añadida en `api/index.ts` y variables secretas de
+  Producción configuradas sin exponer sus valores.
 - Aplicación compilada, iniciada en `http://localhost:3000` y comprobada
   visualmente en Safari sin alerta de conexión.
 
@@ -297,7 +321,8 @@ longitud; nunca deben imprimir el valor.
 
 ## 14. Limitaciones pendientes
 
-- No hay autenticación en Express para un despliegue público.
+- No hay autenticación propia en Express; el despliegue depende de Vercel
+  Authentication y no debe hacerse público sin añadirla en la aplicación.
 - No existe selector de mes ni presupuesto por periodo.
 - Los textos principales todavía presentan el concepto de julio de 2026.
 - No hay pruebas automatizadas de componentes o API.

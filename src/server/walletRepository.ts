@@ -9,10 +9,34 @@ export class WalletRepositoryError extends Error {
   statusCode = 502;
 
   constructor(action: string, cause: unknown) {
-    const detail = cause instanceof Error ? cause.message : String(cause);
+    const detail = formatRepositoryError(cause);
     super(`Supabase no pudo ${action}: ${detail}`);
     this.name = "WalletRepositoryError";
   }
+}
+
+function formatRepositoryError(cause: unknown): string {
+  if (cause instanceof Error) return cause.message;
+
+  if (typeof cause === "object" && cause !== null) {
+    const fields = ["message", "details", "hint", "code"] as const;
+    const details = fields.flatMap((field) => {
+      const value = Reflect.get(cause, field);
+      return typeof value === "string" && value.trim()
+        ? [`${field}: ${value.trim()}`]
+        : [];
+    });
+
+    if (details.length > 0) return details.join("; ");
+
+    try {
+      return JSON.stringify(cause);
+    } catch {
+      return "error de Supabase sin detalles serializables";
+    }
+  }
+
+  return String(cause);
 }
 
 function rowToExpense(row: ExpenseRow): Expense {

@@ -173,6 +173,11 @@ La página muestra primero la caché del navegador y luego la reemplaza con la r
 
 La importación de un JSON reemplaza el presupuesto y los gastos dentro de una transacción de base de datos. Cerrar la pestaña ya no envía copias completas ni puede sobrescribir silenciosamente cambios más recientes.
 
+En el despliegue de Vercel, las rutas `/api/*` se ejecutan como una Function de
+Node.js y reciben la configuración de Supabase únicamente desde variables de
+entorno de Producción. Por eso los cambios realizados desde la web desplegada y
+desde la ejecución local comparten la misma fuente de verdad.
+
 Si Supabase no está configurado, si se intenta usar una clave publicable en el
 servidor o si la base no responde, aparece una alerta visible y la aplicación
 conserva la última caché local para consulta.
@@ -203,7 +208,10 @@ La versión actual cubre presupuesto y gastos, pero no incluye:
 - Usuarios, inicio de sesión, permisos o privacidad por persona.
 - Sincronización segura entre varias parejas o grupos.
 
-La base de datos está cerrada al acceso directo público, pero la API Express no incluye autenticación. La versión actual está pensada para ejecutarse localmente; antes de publicarla en Internet se debe añadir control de acceso.
+La base de datos está cerrada al acceso directo público y el despliegue vigente
+está protegido por Vercel Authentication. La API Express no incluye autenticación
+propia, así que esa protección debe mantenerse; antes de hacer el sitio público
+se debe añadir autenticación y autorización dentro de la aplicación.
 
 Aunque la interfaz habla de un presupuesto mensual y muestra “Julio 2026”, los cálculos actuales suman todos los gastos cargados, sin filtrar por mes. El gráfico también agrega por defecto los días 1 al 14 de julio de 2026, la fecha actual de Colombia y cualquier otra fecha encontrada.
 

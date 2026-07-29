@@ -56,6 +56,12 @@ npm start
 `npm run check` ejecuta TypeScript y genera la compilación completa.
 `npm start` sirve la compilación de producción desde `dist/`.
 
+En Vercel, `api/index.ts` publica Express como Function y `vercel.json` dirige
+las rutas `/api/*` a esa entrada. Configura `SUPABASE_URL` y
+`SUPABASE_SECRET_KEY` como variables sensibles de **Production** y conserva
+Vercel Authentication activa mientras la API no tenga autenticación propia.
+Los cambios de variables solo se aplican a despliegues nuevos.
+
 ## Base de datos
 
 - `wallet_settings`: presupuesto único de la billetera.
