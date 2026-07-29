@@ -1,6 +1,6 @@
-import type { Json, Tables, TablesInsert } from "../database.types";
-import type { Expense, WalletSnapshot } from "../types";
-import { getSupabaseClient } from "./supabase";
+import type { Json, Tables, TablesInsert } from "../database.types.js";
+import type { Expense, WalletSnapshot } from "../types.js";
+import { getSupabaseClient } from "./supabase.js";
 
 type ExpenseRow = Tables<"expenses">;
 type ExpenseInsert = TablesInsert<"expenses">;

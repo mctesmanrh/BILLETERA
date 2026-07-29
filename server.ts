@@ -1,8 +1,8 @@
 import express from "express";
 import path from "node:path";
 import { createServer as createViteServer } from "vite";
-import { createApp } from "./src/server/app";
-import { hasSupabaseConfiguration } from "./src/server/supabase";
+import { createApp } from "./src/server/app.js";
+import { hasSupabaseConfiguration } from "./src/server/supabase.js";
 
 const app = createApp();
 const parsedPort = Number.parseInt(process.env.PORT ?? "3000", 10);

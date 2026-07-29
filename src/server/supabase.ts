@@ -1,6 +1,6 @@
 import dotenv from "dotenv";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "../database.types";
+import type { Database } from "../database.types.js";
 
 dotenv.config({ path: ".env.local", quiet: true });
 dotenv.config({ quiet: true });

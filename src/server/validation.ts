@@ -1,4 +1,4 @@
-import type { Expense, WalletSnapshot } from "../types";
+import type { Expense, WalletSnapshot } from "../types.js";
 
 const CATEGORY_KEYS = new Set([
   "alimentacion",

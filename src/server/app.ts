@@ -4,7 +4,7 @@ import express, {
   type Request,
   type Response,
 } from "express";
-import type { Expense } from "../types";
+import type { Expense } from "../types.js";
 import {
   checkDatabaseConnection,
   createExpense,
@@ -15,17 +15,17 @@ import {
   restoreExpense,
   softDeleteExpense,
   updateBudget,
-} from "./walletRepository";
+} from "./walletRepository.js";
 import {
   RequestValidationError,
   validateBudget,
   validateExpense,
   validateWalletSnapshot,
-} from "./validation";
+} from "./validation.js";
 import {
   hasSupabaseConfiguration,
   SupabaseConfigurationError,
-} from "./supabase";
+} from "./supabase.js";
 
 type AsyncRoute = (
   req: Request,
