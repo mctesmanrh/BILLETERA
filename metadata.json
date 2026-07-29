@@ -1,0 +1,6 @@
+{
+  "name": "GASTOS MENSUALES ANGIE Y JORDAN",
+  "description": "Dashboard para definir presupuesto mensual y visualizar gastos con el saldo disponible.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
