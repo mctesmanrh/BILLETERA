@@ -303,7 +303,10 @@ export async function replaceWalletSnapshot(snapshot: WalletData): Promise<void>
 
     await getPrismaClient().$transaction(async (transaction) => {
       await transaction.$queryRaw`
-        select pg_advisory_xact_lock(hashtext('tu-billetera-wallet-import'))
+        select 1 as locked
+        from (
+          select pg_advisory_xact_lock(hashtext('tu-billetera-wallet-import'))
+        ) as wallet_import_lock
       `;
       await transaction.walletSettings.update({
         where: { id: "main" },

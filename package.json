@@ -9,6 +9,7 @@
   "scripts": {
     "db:generate": "prisma generate",
     "db:migrate": "tsx database/migrate.ts && prisma generate",
+    "db:import-expenses": "tsx scripts/import-expenses-only.ts",
     "dev": "tsx server.ts",
     "build": "prisma generate && vite build && esbuild server.ts --bundle --platform=node --format=esm --packages=external --sourcemap --outfile=dist/server.js",
     "vercel-build": "prisma generate && vite build",

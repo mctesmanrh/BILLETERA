@@ -173,12 +173,22 @@ Una solicitud anónima a `/api/data` responde `401`; el host es público, pero l
 datos financieros no lo son.
 
 Los archivos `.env.vercel.production.local`, `.vercel/` y cualquier `.env*`
-real están ignorados por Git. El respaldo local correcto del 1 de agosto de 2026
-ya fue restaurado en `tu_billetera`: julio quedó con 28 gastos, 2 eliminados y
-776.100 COP gastados. Al restaurarlo, agosto contenía 1 gasto por 2.000 COP;
-desde entonces la billetera local recibió movimientos nuevos. Ese archivo
-todavía no se ha subido a producción y requiere autorización explícita para
-transferirlo al PostgreSQL Prisma remoto.
+real están ignorados por Git. El 12 de agosto de 2026 se transfirieron a
+Production únicamente los 12 gastos activos del respaldo de esa fecha, por un
+total de 649.200 COP. El presupuesto remoto permaneció en 1.500.000 COP y no se
+reemplazaron el mes activo, los informes, la papelera ni las sesiones.
+
+El importador específico es idempotente, omite identificadores ya existentes y
+se ejecuta primero en simulación. Para Production:
+
+```bash
+BILLETERA_ENV_FILE=.vercel/.env.production.local npm run db:import-expenses -- /ruta/al/respaldo.json --production
+BILLETERA_ENV_FILE=.vercel/.env.production.local npm run db:import-expenses -- /ruta/al/respaldo.json --production --apply
+```
+
+La segunda simulación del respaldo ya aplicado omitió los 12 identificadores y
+confirmó que no crea duplicados. No registrar descripciones ni secretos en la
+salida o en la documentación.
 
 La arquitectura y los contratos completos están en
 `docs/ARQUITECTURA_TECNICA.md`.

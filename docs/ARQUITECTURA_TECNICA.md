@@ -68,6 +68,7 @@ flowchart LR
 │   └── index.ts
 ├── docs/
 ├── scripts/
+│   ├── import-expenses-only.ts
 │   └── macos/
 │       └── com.jordan.tu-billetera.plist
 ├── src/
@@ -105,6 +106,8 @@ Responsabilidades:
 - `src/server/validation.ts`: validación de entrada y respaldos.
 - `src/monthlyReportDocument.ts`: genera el documento HTML descargable.
 - `src/App.tsx`: navegación, estado, caché y llamadas a la API.
+- `scripts/import-expenses-only.ts`: inserta solo gastos faltantes de una copia
+  validada; no reemplaza presupuesto, mes, informes, papelera ni sesiones.
 - `scripts/macos/com.jordan.tu-billetera.plist`: servicio de usuario que mantiene
   la aplicación local activa en macOS.
 
@@ -291,12 +294,18 @@ lsof -nP -iTCP:3002 -sTCP:LISTEN
 - Migraciones `001_initial_wallet.sql`, `002_isolate_billetera_schema.sql` y
   `003_prisma_auth.sql` aplicadas localmente y en Production.
 - Mes activo: `2026-08-01`.
-- Presupuesto activo: 1.500.000 COP; gasto activo inicial: 0 COP.
+- Presupuesto activo: 1.500.000 COP.
 - Respaldo local `respaldo_mis_gastos_2026-08-01.json` restaurado sin consultar
   servicios externos.
 - Informe de julio: 28 gastos, 2 eliminados y 776.100 COP gastados.
 - Al restaurar el respaldo, agosto tenía 1 gasto por 2.000 COP. El 12 de agosto,
   el estado local activo contiene 12 gastos por 649.200 COP y papelera vacía.
+- El 12 de agosto, Production recibió únicamente los 12 gastos activos del
+  respaldo de esa fecha, por 649.200 COP. El presupuesto siguió en 1.500.000
+  COP, el disponible quedó en 850.800 COP y se conservaron mes, informes,
+  papelera y sesiones.
+- Una segunda simulación del importador omitió los 12 identificadores ya
+  presentes y confirmó que la operación es idempotente.
 - `GET /api/health`: `database = postgresql`, `orm = prisma`.
 - `GET /api/data` y `GET /api/reports/2026-07`: correctos.
 - TypeScript y compilación de producción: correctos.
@@ -312,13 +321,18 @@ El respaldo correcto fue exportado el 1 de agosto de 2026 y contiene movimientos
 entre el 14 de julio y el 1 de agosto. Su SHA-256 es
 `a91026a54c2e9863f9c7da0178786b14f94cda619293145661147ecdc4a9be4d`.
 
+La copia usada para transferir solo gastos a Production fue exportada el 12 de
+agosto de 2026. Su SHA-256 es
+`2617622df0cfcf9f0f83df4852fe11ac9624310db5095b7abab2b93d3bd1e353`;
+contiene 12 gastos activos por 649.200 COP y ninguna fila en la papelera.
+
 ## 12. Despliegue y seguridad
 
 - Proyecto exclusivo: `mctesman/tu-billetera-angie-jordan`.
 - Despliegue final verificado el 12 de agosto de 2026:
-  `dpl_9C4YhtPC36Rta45eBEhkw753Quyj`, estado `READY`.
+  `dpl_8jKjzWm4vcKgpHMWFiir2xoSX4ac`, estado `READY`.
 - Host protegido de esa versión:
-  `https://tu-billetera-angie-jordan-47z21hcxb-mctesman.vercel.app`.
+  `https://tu-billetera-angie-jordan-5evsma3wv-mctesman.vercel.app`.
 - Alias público reparado el 12 de agosto de 2026:
   `https://billetera-pearl.vercel.app`. Fue reasignado desde el proyecto antiguo
   `billetera` al despliegue exclusivo anterior; no volver a apuntarlo al proyecto
@@ -340,6 +354,9 @@ entre el 14 de julio y el 1 de agosto. Su SHA-256 es
 - `getPoolConfig` convierte los modos SSL heredados `prefer`, `require` y
   `verify-ca` en `verify-full`, conservando la validación fuerte y evitando que
   el controlador `pg` registre su advertencia de compatibilidad como error.
+- El bloqueo asesor de las importaciones se consulta desde una subconsulta que
+  devuelve un entero. Esto conserva la exclusión transaccional sin pedirle a
+  Prisma que deserialice el tipo PostgreSQL `void`.
 
 La base física de Prisma Postgres también sirve a Supervisar, pero el esquema
 `billetera` evita mezclar tablas o consultas. COMPRAS no está enlazado al proyecto
@@ -369,10 +386,12 @@ Los secretos descargados viven en `.env.vercel.production.local` y
 copiarlos a variables `VITE_*`. Para migrar el esquema remoto puede usarse
 `BILLETERA_ENV_FILE=.env.vercel.production.local npm run db:migrate`.
 
-El entorno remoto está inicializado con agosto de 2026, presupuesto de 1.500.000
-COP y sin movimientos ni informes. La restauración local fue autorizada y
-completada, pero la transferencia del archivo a Prisma Postgres remoto sigue
-pendiente: exige que el usuario autorice explícitamente ese destino de producción.
+El entorno remoto está en agosto de 2026 con presupuesto de 1.500.000 COP y 12
+gastos activos por 649.200 COP. La carga autorizada del 12 de agosto fue
+selectiva: `scripts/import-expenses-only.ts` validó la copia, insertó solo los
+gastos faltantes y preservó presupuesto, mes activo, informes, papelera y
+sesiones. El modo normal es simulación; `--apply` habilita la escritura y
+`--production` exige que Vercel confirme `VERCEL_ENV=production`.
 
 Los borrados definitivos y la importación completa son operaciones destructivas,
 por lo que la interfaz mantiene confirmaciones y copias JSON recuperables.

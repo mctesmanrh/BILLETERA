@@ -147,6 +147,8 @@ ingresos, varias billeteras, edición de gastos, presupuestos por categoría,
 gastos recurrentes ni permisos distintos por persona. Sí incluye autenticación
 propia con Google; las cuentas autorizadas comparten la misma billetera.
 
-El respaldo financiero del 1 de agosto ya corrigió julio localmente a 28 gastos,
-2 eliminados y 776.100 COP. Todavía no está en producción y solo debe
-transferirse con autorización explícita para Prisma Postgres remoto.
+El 12 de agosto de 2026 se transfirieron a Prisma Postgres de Production solo
+los datos de los gastos activos del respaldo de esa fecha: 12 movimientos de
+agosto por 649.200 COP. La página conserva el presupuesto de 1.500.000 COP y
+muestra 850.800 COP disponibles. No se importaron el presupuesto de la copia,
+la papelera, los informes, el mes activo ni las sesiones.
