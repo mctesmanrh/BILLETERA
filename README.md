@@ -145,8 +145,9 @@ El proyecto exclusivo de Vercel es `mctesman/tu-billetera-angie-jordan`. La
 versión del 12 de agosto de 2026 está desplegada en
 `https://billetera-pearl.vercel.app`. El alias se transfirió desde el proyecto
 antiguo `billetera` al proyecto exclusivo y ya sirve la versión PostgreSQL/Prisma,
-sin consultar Supabase. La página pública conserva cerradas las rutas financieras
-mediante Auth.js mientras se terminan de configurar las credenciales de Google.
+sin consultar Supabase. Google OAuth está configurado y el inicio de sesión real
+con `mctesmanrh@gmail.com` fue verificado de extremo a extremo. La página pública
+conserva cerradas las rutas financieras mediante Auth.js.
 
 Producción usa el recurso existente `prisma-postgres-indigo-tree` de Prisma
 Postgres. La conexión está asignada al proyecto de Billetera solo en el entorno
@@ -166,10 +167,10 @@ npx --yes vercel@latest deploy --prebuilt --prod --skip-domain --yes --scope mct
 ```
 
 Usar `--skip-domain` mientras se comprueba una versión protegida. Después de
-configurar y verificar Google Auth, usar como callback
-`https://billetera-pearl.vercel.app/api/auth/callback/google` y comprobar desde
-una sesión anónima que `/api/data` responde `401`. El host ya es público, pero
-los datos financieros no lo son.
+comprobar Google Auth, asignar `billetera-pearl.vercel.app` al despliegue aprobado.
+El callback es `https://billetera-pearl.vercel.app/api/auth/callback/google`.
+Una solicitud anónima a `/api/data` responde `401`; el host es público, pero los
+datos financieros no lo son.
 
 Los archivos `.env.vercel.production.local`, `.vercel/` y cualquier `.env*`
 real están ignorados por Git. El respaldo local correcto del 1 de agosto de 2026

@@ -315,10 +315,10 @@ entre el 14 de julio y el 1 de agosto. Su SHA-256 es
 ## 12. Despliegue y seguridad
 
 - Proyecto exclusivo: `mctesman/tu-billetera-angie-jordan`.
-- Despliegue protegido verificado el 12 de agosto de 2026:
-  `dpl_EZhT9weUQSbVeSJEqiqNHuis5fYr`, estado `READY`.
+- Despliegue final verificado el 12 de agosto de 2026:
+  `dpl_9C4YhtPC36Rta45eBEhkw753Quyj`, estado `READY`.
 - Host protegido de esa versión:
-  `https://tu-billetera-angie-jordan-19323sn7a-mctesman.vercel.app`.
+  `https://tu-billetera-angie-jordan-47z21hcxb-mctesman.vercel.app`.
 - Alias público reparado el 12 de agosto de 2026:
   `https://billetera-pearl.vercel.app`. Fue reasignado desde el proyecto antiguo
   `billetera` al despliegue exclusivo anterior; no volver a apuntarlo al proyecto
@@ -326,7 +326,7 @@ entre el 14 de julio y el 1 de agosto. Su SHA-256 es
 - En el alias público, la raíz y `/api/health` responden `200`,
   `/api/session` responde `null` y `/api/data` responde `401` sin sesión.
   `health` confirma `database=postgresql`, `orm=prisma` y
-  `auth.configured=false` mientras falten las credenciales de Google.
+  `auth.configured=true`.
 - Recurso de datos existente: `prisma-postgres-indigo-tree`.
 - La integración entrega `DATABASE_URL`, `PRISMA_DATABASE_URL` y `POSTGRES_URL`
   solo al entorno Production del proyecto de Billetera.
@@ -337,24 +337,32 @@ entre el 14 de julio y el 1 de agosto. Su SHA-256 es
 - El generador Prisma usa ESM e `importFileExtension = "js"`; sin este ajuste la
   función transpila los archivos pero intenta importar extensiones `.ts`, lo que
   provoca `FUNCTION_INVOCATION_FAILED`.
+- `getPoolConfig` convierte los modos SSL heredados `prefer`, `require` y
+  `verify-ca` en `verify-full`, conservando la validación fuerte y evitando que
+  el controlador `pg` registre su advertencia de compatibilidad como error.
 
 La base física de Prisma Postgres también sirve a Supervisar, pero el esquema
 `billetera` evita mezclar tablas o consultas. COMPRAS no está enlazado al proyecto
 ni al host de Billetera. No usar Neon, Supabase o Firebase para este proyecto.
 
-Vercel Authentication continúa protegiendo los despliegues mientras Google OAuth
-no esté configurado. La aplicación ya implementa su propia barrera: Google,
-correo verificado, lista `AUTH_ALLOWED_EMAILS` obligatoria en Vercel y sesiones
-en `billetera_auth`. La clave `AUTH_SECRET` ya está guardada como variable
-sensible de Production; aún faltan `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` y la
-lista exacta de correos autorizados.
+Vercel Authentication protege las URLs únicas de despliegue y Auth.js protege el
+alias público. El proyecto Google Cloud independiente es `Tu Billetera`
+(`static-welder-505317-g2`), con público externo en modo Prueba. El cliente web
+autoriza el origen `https://billetera-pearl.vercel.app` y su callback exacto.
+`AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` y `AUTH_ALLOWED_EMAILS`
+están guardadas como variables sensibles solo de Production; sus valores no se
+documentan ni se exponen al cliente.
 
-Mientras se configura el acceso, desplegar versiones candidatas con
-`--skip-domain`. El alias público estable actual es
-`https://billetera-pearl.vercel.app`; no moverlo al proyecto viejo. Tras
-configurar Google, verificar un inicio de sesión real y confirmar que una
-solicitud anónima a `/api/data` recibe `401`. El callback OAuth debe ser
-exactamente `https://billetera-pearl.vercel.app/api/auth/callback/google`.
+La cuenta de prueba y permitida actual es `mctesmanrh@gmail.com`. El flujo real
+Google → callback de Auth.js → sesión Prisma → Dashboard fue comprobado el 12 de
+agosto de 2026. Para habilitar otra cuenta, agregarla tanto a los usuarios de
+prueba de Google como a `AUTH_ALLOWED_EMAILS` y desplegar de nuevo.
+
+Desplegar versiones candidatas con `--skip-domain`, comprobar `health`, el `401`
+anónimo y un inicio de sesión real antes de mover el alias público estable
+`https://billetera-pearl.vercel.app`. No moverlo al proyecto viejo. El callback
+OAuth debe seguir siendo exactamente
+`https://billetera-pearl.vercel.app/api/auth/callback/google`.
 
 Los secretos descargados viven en `.env.vercel.production.local` y
 `.vercel/.env.production.local`, ambos ignorados por Git. No imprimirlos ni

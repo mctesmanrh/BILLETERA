@@ -11,6 +11,22 @@ if (deploymentEnvFile) {
 
 let pool: Pool | null = null;
 
+function normalizeSslMode(connectionString: string): string {
+  try {
+    const url = new URL(connectionString);
+    const sslMode = url.searchParams.get("sslmode")?.toLowerCase();
+
+    if (sslMode && ["prefer", "require", "verify-ca"].includes(sslMode)) {
+      url.searchParams.set("sslmode", "verify-full");
+      return url.toString();
+    }
+  } catch {
+    // Let pg report malformed connection strings with its normal diagnostics.
+  }
+
+  return connectionString;
+}
+
 export class PostgresConfigurationError extends Error {
   statusCode = 503;
 
@@ -38,7 +54,10 @@ export function getPoolConfig(): PoolConfig {
   };
 
   if (connectionString) {
-    return { ...sharedConfig, connectionString };
+    return {
+      ...sharedConfig,
+      connectionString: normalizeSslMode(connectionString),
+    };
   }
 
   return {

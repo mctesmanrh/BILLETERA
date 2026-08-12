@@ -21,8 +21,9 @@ ya no apunta al despliegue antiguo que dependía de Supabase.
 Al entrar, la página consulta la sesión. Si no existe, muestra una pantalla de
 bienvenida con el botón **Continuar con Google** y no solicita ni muestra ningún
 dato financiero. Solo pueden entrar cuentas verificadas incluidas en la lista de
-correos autorizados. Mientras faltan las credenciales OAuth de Production, el
-botón permanece deshabilitado y la página no intenta consultar datos privados.
+correos autorizados. El inicio de sesión de Production está activo y fue probado
+con `mctesmanrh@gmail.com`; cualquier cuenta adicional debe agregarse tanto en
+Google como en la lista privada de Vercel.
 
 Después de iniciar sesión, la cabecera muestra la foto, nombre y correo de la
 cuenta. El menú de usuario permite cerrar la sesión; al hacerlo también se borra
