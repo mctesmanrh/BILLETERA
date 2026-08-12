@@ -133,7 +133,7 @@ La aplicación acepta únicamente cuentas de Google cuyo correo esté incluido e
 cliente OAuth debe registrar exactamente este callback de producción:
 
 ```text
-https://tu-billetera-angie-jordan.vercel.app/api/auth/callback/google
+https://billetera-pearl.vercel.app/api/auth/callback/google
 ```
 
 Las rutas financieras `/api/*` exigen una sesión; solo `/api/health`,
@@ -142,10 +142,11 @@ Las rutas financieras `/api/*` exigen una sesión; solo `/api/health`,
 ## Despliegue
 
 El proyecto exclusivo de Vercel es `mctesman/tu-billetera-angie-jordan`. La
-versión del 12 de agosto de 2026 está desplegada y verificada detrás de Vercel
-Authentication mientras se terminan de configurar las credenciales de Google.
-No se debe retirar esa protección ni asignar el alias público estable hasta que
-el inicio de sesión real haya pasado la prueba completa.
+versión del 12 de agosto de 2026 está desplegada en
+`https://billetera-pearl.vercel.app`. El alias se transfirió desde el proyecto
+antiguo `billetera` al proyecto exclusivo y ya sirve la versión PostgreSQL/Prisma,
+sin consultar Supabase. La página pública conserva cerradas las rutas financieras
+mediante Auth.js mientras se terminan de configurar las credenciales de Google.
 
 Producción usa el recurso existente `prisma-postgres-indigo-tree` de Prisma
 Postgres. La conexión está asignada al proyecto de Billetera solo en el entorno
@@ -165,10 +166,10 @@ npx --yes vercel@latest deploy --prebuilt --prod --skip-domain --yes --scope mct
 ```
 
 Usar `--skip-domain` mientras se comprueba una versión protegida. Después de
-configurar y verificar Google Auth, asignar el alias estable
-`tu-billetera-angie-jordan.vercel.app` y comprobar desde una sesión anónima que
-`/api/data` responde `401`; entonces el host puede quedar público sin exponer los
-datos.
+configurar y verificar Google Auth, usar como callback
+`https://billetera-pearl.vercel.app/api/auth/callback/google` y comprobar desde
+una sesión anónima que `/api/data` responde `401`. El host ya es público, pero
+los datos financieros no lo son.
 
 Los archivos `.env.vercel.production.local`, `.vercel/` y cualquier `.env*`
 real están ignorados por Git. El respaldo local correcto del 1 de agosto de 2026

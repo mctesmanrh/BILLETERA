@@ -11,17 +11,18 @@ movimientos pasan a un informe histórico descargable y el mes vigente vuelve a
 mostrar el presupuesto completo, sin mezclar gastos entre meses.
 
 Esta descripción refleja el comportamiento implementado al 12 de agosto de
-2026. La versión local se abre en `http://127.0.0.1:3002`. La versión de Vercel
-permanece protegida durante la configuración de Google; una vez verificado el
-inicio de sesión, su dirección pública estable será
-`https://tu-billetera-angie-jordan.vercel.app`.
+2026. La versión local se abre en `http://127.0.0.1:3002` y la versión pública
+está en `https://billetera-pearl.vercel.app`. Este alias apunta al proyecto
+exclusivo `tu-billetera-angie-jordan`, cuya API usa PostgreSQL con Prisma ORM;
+ya no apunta al despliegue antiguo que dependía de Supabase.
 
 ## 2. Inicio de sesión
 
 Al entrar, la página consulta la sesión. Si no existe, muestra una pantalla de
 bienvenida con el botón **Continuar con Google** y no solicita ni muestra ningún
 dato financiero. Solo pueden entrar cuentas verificadas incluidas en la lista de
-correos autorizados.
+correos autorizados. Mientras faltan las credenciales OAuth de Production, el
+botón permanece deshabilitado y la página no intenta consultar datos privados.
 
 Después de iniciar sesión, la cabecera muestra la foto, nombre y correo de la
 cuenta. El menú de usuario permite cerrar la sesión; al hacerlo también se borra

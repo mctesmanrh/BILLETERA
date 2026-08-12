@@ -319,8 +319,14 @@ entre el 14 de julio y el 1 de agosto. Su SHA-256 es
   `dpl_EZhT9weUQSbVeSJEqiqNHuis5fYr`, estado `READY`.
 - Host protegido de esa versión:
   `https://tu-billetera-angie-jordan-19323sn7a-mctesman.vercel.app`.
-- La raíz y `/api/health` responden `200`, `/api/session` responde `null` y
-  `/api/data` responde `401` sin sesión.
+- Alias público reparado el 12 de agosto de 2026:
+  `https://billetera-pearl.vercel.app`. Fue reasignado desde el proyecto antiguo
+  `billetera` al despliegue exclusivo anterior; no volver a apuntarlo al proyecto
+  que contenía la integración de Supabase.
+- En el alias público, la raíz y `/api/health` responden `200`,
+  `/api/session` responde `null` y `/api/data` responde `401` sin sesión.
+  `health` confirma `database=postgresql`, `orm=prisma` y
+  `auth.configured=false` mientras falten las credenciales de Google.
 - Recurso de datos existente: `prisma-postgres-indigo-tree`.
 - La integración entrega `DATABASE_URL`, `PRISMA_DATABASE_URL` y `POSTGRES_URL`
   solo al entorno Production del proyecto de Billetera.
@@ -343,12 +349,12 @@ en `billetera_auth`. La clave `AUTH_SECRET` ya está guardada como variable
 sensible de Production; aún faltan `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` y la
 lista exacta de correos autorizados.
 
-Mientras se configura el acceso, desplegar con `--skip-domain`. Tras verificar un
-inicio de sesión real y confirmar que una solicitud anónima a `/api/data` recibe
-`401`, asignar el alias público estable
-`https://tu-billetera-angie-jordan.vercel.app`. El callback OAuth debe ser
-exactamente
-`https://tu-billetera-angie-jordan.vercel.app/api/auth/callback/google`.
+Mientras se configura el acceso, desplegar versiones candidatas con
+`--skip-domain`. El alias público estable actual es
+`https://billetera-pearl.vercel.app`; no moverlo al proyecto viejo. Tras
+configurar Google, verificar un inicio de sesión real y confirmar que una
+solicitud anónima a `/api/data` recibe `401`. El callback OAuth debe ser
+exactamente `https://billetera-pearl.vercel.app/api/auth/callback/google`.
 
 Los secretos descargados viven en `.env.vercel.production.local` y
 `.vercel/.env.production.local`, ambos ignorados por Git. No imprimirlos ni
