@@ -1,12 +1,27 @@
 import React, { useRef, useState } from "react";
-import { Download, Upload, FileSpreadsheet, ShieldAlert, CheckCircle2, FileJson, X } from "lucide-react";
-import { Expense } from "../types";
+import {
+  CheckCircle2,
+  Download,
+  FileClock,
+  FileJson,
+  FileSpreadsheet,
+  LoaderCircle,
+  ShieldAlert,
+  Upload,
+  X,
+} from "lucide-react";
+import { formatCurrency, formatMonthYearSpanish } from "../data";
+import { downloadMonthlyReportDocument } from "../monthlyReportDocument";
+import type { Expense, MonthlyReport, MonthlyReportSummary } from "../types";
 
 interface BackupManagerProps {
   monthlyBudget: number;
   expenses: Expense[];
   deletedExpenses: Expense[];
+  activeMonth: string;
+  monthlyReports: MonthlyReportSummary[];
   onImportData: (data: { monthlyBudget: number; expenses: Expense[]; deletedExpenses: Expense[] }) => Promise<void>;
+  onLoadMonthlyReport: (monthStart: string) => Promise<MonthlyReport>;
   isOpen: boolean;
   onClose: () => void;
 }
@@ -15,12 +30,16 @@ export default function BackupManager({
   monthlyBudget,
   expenses,
   deletedExpenses,
+  activeMonth,
+  monthlyReports,
   onImportData,
+  onLoadMonthlyReport,
   isOpen,
   onClose,
 }: BackupManagerProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [notification, setNotification] = useState<string | null>(null);
+  const [downloadingMonth, setDownloadingMonth] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -29,11 +48,31 @@ export default function BackupManager({
     setTimeout(() => setNotification(null), 4000);
   };
 
+  const handleDownloadMonthlyReport = async (monthStart: string) => {
+    setDownloadingMonth(monthStart);
+    try {
+      const report = await onLoadMonthlyReport(monthStart);
+      downloadMonthlyReportDocument(report);
+      showNotification(
+        `Informe de ${formatMonthYearSpanish(monthStart)} descargado correctamente.`,
+      );
+    } catch (error) {
+      showNotification(
+        error instanceof Error
+          ? error.message
+          : "No fue posible descargar el informe mensual.",
+      );
+    } finally {
+      setDownloadingMonth(null);
+    }
+  };
+
   // 1. Export JSON backup file
   const handleExportJson = () => {
     const backupData = {
-      version: "1.0",
+      version: "2.0",
       exportDate: new Date().toISOString(),
+      activeMonth,
       monthlyBudget,
       expenses,
       deletedExpenses,
@@ -134,7 +173,7 @@ export default function BackupManager({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto">
-      <div className="bg-white border border-slate-100 rounded-[28px] max-w-lg w-full p-6 sm:p-8 shadow-2xl relative space-y-6">
+      <div className="bg-white border border-slate-100 rounded-[28px] max-w-2xl w-full p-6 sm:p-8 shadow-2xl relative space-y-6 my-auto">
         
         {/* Header */}
         <div className="flex items-start justify-between">
@@ -143,8 +182,8 @@ export default function BackupManager({
               <Download className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-800">Copia de Seguridad en tu PC</h2>
-              <p className="text-xs text-slate-500">Guarda o restaura tus datos en cualquier momento</p>
+              <h2 className="text-lg font-bold text-slate-800">Copias e informes mensuales</h2>
+              <p className="text-xs text-slate-500">Respalda el mes activo o descarga periodos cerrados</p>
             </div>
           </div>
           <button
@@ -160,10 +199,71 @@ export default function BackupManager({
           <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
           <div>
             <span className="font-bold block mb-0.5 text-amber-950">Protección adicional de tus datos:</span>
-            Supabase conserva la información principal. La copia <span className="font-semibold">.json</span> es
+            PostgreSQL conserva la información principal. La copia <span className="font-semibold">.json</span> es
             un respaldo adicional para recuperar o trasladar la billetera si pierdes acceso al servidor.
           </div>
         </div>
+
+        <section className="space-y-3" aria-labelledby="monthly-reports-title">
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <h3 id="monthly-reports-title" className="text-sm font-bold text-slate-800">
+                Informes de meses cerrados
+              </h3>
+              <p className="text-xs text-slate-400">
+                Se crean automáticamente al comenzar cada mes.
+              </p>
+            </div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              {monthlyReports.length} {monthlyReports.length === 1 ? "informe" : "informes"}
+            </span>
+          </div>
+
+          {monthlyReports.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-5 text-center text-xs text-slate-500">
+              El primer informe aparecerá después del próximo cierre mensual.
+            </div>
+          ) : (
+            <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
+              {monthlyReports.map((report) => {
+                const isDownloading = downloadingMonth === report.monthStart;
+                return (
+                  <div
+                    key={report.monthStart}
+                    className="flex flex-col gap-3 rounded-2xl border border-slate-200 p-4 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-700">
+                        <FileClock className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-800">
+                          {formatMonthYearSpanish(report.monthStart)}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {report.expenseCount} movimientos · {formatCurrency(report.totalSpent)} gastados
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={isDownloading}
+                      onClick={() => handleDownloadMonthlyReport(report.monthStart)}
+                      className="flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-xs font-bold text-white transition-colors hover:bg-slate-800 disabled:cursor-wait disabled:opacity-60"
+                    >
+                      {isDownloading ? (
+                        <LoaderCircle className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Download className="h-4 w-4" />
+                      )}
+                      Descargar informe
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
 
         {/* Notification Toast inside modal */}
         {notification && (

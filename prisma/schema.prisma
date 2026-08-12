@@ -1,0 +1,104 @@
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "esm"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+  schemas  = ["billetera", "billetera_auth"]
+}
+
+model WalletSettings {
+  id            String   @id
+  monthlyBudget BigInt   @default(1500000) @map("monthly_budget")
+  activeMonth   DateTime @map("active_month") @db.Date
+  updatedAt     DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  @@map("wallet_settings")
+  @@schema("billetera")
+}
+
+model ExpenseRecord {
+  id          String    @id
+  amount      BigInt
+  category    String
+  spentOn     DateTime  @map("spent_on") @db.Date
+  description String
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  @@index([spentOn(sort: Desc), createdAt(sort: Desc)], map: "expenses_spent_on_created_at_prisma_idx")
+  @@map("expenses")
+  @@schema("billetera")
+}
+
+model MonthlyArchive {
+  monthStart          DateTime @id @map("month_start") @db.Date
+  monthlyBudget       BigInt   @map("monthly_budget")
+  totalSpent          BigInt   @map("total_spent")
+  expenseCount        BigInt   @map("expense_count")
+  deletedExpenseCount BigInt   @map("deleted_expense_count")
+  expenses            Json
+  deletedExpenses     Json     @map("deleted_expenses")
+  archivedAt          DateTime @default(now()) @map("archived_at") @db.Timestamptz(6)
+
+  @@map("monthly_archives")
+  @@schema("billetera")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime? @map("email_verified") @db.Timestamptz(3)
+  image         String?
+  accounts      Account[]
+  sessions      Session[]
+
+  @@map("users")
+  @@schema("billetera_auth")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String  @map("user_id")
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+  @@schema("billetera_auth")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
+  expires      DateTime @db.Timestamptz(3)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+  @@schema("billetera_auth")
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime @db.Timestamptz(3)
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+  @@schema("billetera_auth")
+}

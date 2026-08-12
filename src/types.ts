@@ -4,6 +4,7 @@ export interface Expense {
   category: string;
   date: string; // ISO format YYYY-MM-DD
   description: string;
+  deletedAt?: string;
 }
 
 export interface BudgetState {
@@ -11,8 +12,40 @@ export interface BudgetState {
   expenses: Expense[];
 }
 
-export interface WalletSnapshot extends BudgetState {
+export interface WalletData extends BudgetState {
   deletedExpenses: Expense[];
+}
+
+export interface MonthlyReportSummary {
+  monthStart: string;
+  monthlyBudget: number;
+  totalSpent: number;
+  availableBalance: number;
+  expenseCount: number;
+  deletedExpenseCount: number;
+  archivedAt: string;
+}
+
+export interface MonthlyReport extends MonthlyReportSummary {
+  expenses: Expense[];
+  deletedExpenses: Expense[];
+}
+
+export interface WalletSnapshot extends WalletData {
+  activeMonth: string;
+  monthlyReports: MonthlyReportSummary[];
+}
+
+export interface AuthUser {
+  id?: string;
+  name?: string | null;
+  email?: string | null;
+  image?: string | null;
+}
+
+export interface AuthSession {
+  user?: AuthUser;
+  expires: string;
 }
 
 export interface DailyExpenseSummary {

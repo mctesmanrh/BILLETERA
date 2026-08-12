@@ -9,6 +9,8 @@ import {
   checkDatabaseConnection,
   createExpense,
   emptyTrash,
+  ensureCurrentWalletMonth,
+  loadMonthlyReport,
   loadWalletSnapshot,
   permanentlyDeleteExpense,
   replaceWalletSnapshot,
@@ -20,12 +22,17 @@ import {
   RequestValidationError,
   validateBudget,
   validateExpense,
+  validateExpenseMonth,
+  validateReportMonth,
   validateWalletSnapshot,
 } from "./validation.js";
+import { PostgresConfigurationError } from "./postgres.js";
 import {
-  hasSupabaseConfiguration,
-  SupabaseConfigurationError,
-} from "./supabase.js";
+  authHandler,
+  getAuthConfigurationStatus,
+  getAuthenticatedSession,
+  requireAuthenticatedUser,
+} from "./auth.js";
 
 type AsyncRoute = (
   req: Request,
@@ -42,25 +49,31 @@ function asyncRoute(handler: AsyncRoute) {
 export function createApp() {
   const app = express();
 
+  app.set("trust proxy", true);
+  app.use("/api/auth/*", authHandler);
   app.use(express.json({ limit: "1mb" }));
+
+  app.get(
+    "/api/session",
+    asyncRoute(async (req, res) => {
+      res.json(await getAuthenticatedSession(req));
+    }),
+  );
 
   app.get(
     "/api/health",
     asyncRoute(async (_req, res) => {
-      if (!hasSupabaseConfiguration()) {
-        res.status(503).json({
-          status: "configuration_required",
-          database: "supabase",
-          message:
-            "Configura SUPABASE_URL y SUPABASE_SECRET_KEY en el entorno del servidor.",
-        });
-        return;
-      }
-
       await checkDatabaseConnection();
-      res.json({ status: "ok", database: "supabase" });
+      res.json({
+        status: "ok",
+        database: "postgresql",
+        orm: "prisma",
+        auth: getAuthConfigurationStatus(),
+      });
     }),
   );
+
+  app.use("/api", asyncRoute(requireAuthenticatedUser));
 
   app.get(
     "/api/data",
@@ -84,6 +97,8 @@ export function createApp() {
       const input = validateExpense(req.body?.expense, {
         requireId: false,
       }) as Omit<Expense, "id">;
+      const activeMonth = await ensureCurrentWalletMonth();
+      validateExpenseMonth(input.date, activeMonth);
       const expense: Expense = {
         ...input,
         id: `exp-${Date.now()}-${randomUUID().slice(0, 8)}`,
@@ -94,8 +109,21 @@ export function createApp() {
       res.status(201).json({
         success: true,
         expense,
-        expenses: snapshot.expenses,
+        ...snapshot,
       });
+    }),
+  );
+
+  app.get(
+    "/api/reports/:month",
+    asyncRoute(async (req, res) => {
+      const monthStart = validateReportMonth(req.params.month);
+      const report = await loadMonthlyReport(monthStart);
+      if (!report) {
+        res.status(404).json({ error: "No existe un informe cerrado para ese mes." });
+        return;
+      }
+      res.json(report);
     }),
   );
 
@@ -152,7 +180,7 @@ export function createApp() {
     asyncRoute(async (req, res) => {
       const snapshot = validateWalletSnapshot(req.body);
       await replaceWalletSnapshot(snapshot);
-      res.json({ success: true, ...snapshot });
+      res.json({ success: true, ...(await loadWalletSnapshot()) });
     }),
   );
 
@@ -171,7 +199,7 @@ export function createApp() {
 
       const statusCode =
         error instanceof RequestValidationError ||
-        error instanceof SupabaseConfigurationError
+        error instanceof PostgresConfigurationError
           ? error.statusCode
           : typeof error === "object" &&
               error !== null &&

@@ -1,4 +1,4 @@
-import type { Expense, WalletSnapshot } from "../types.js";
+import type { Expense, WalletData } from "../types.js";
 
 const CATEGORY_KEYS = new Set([
   "alimentacion",
@@ -10,6 +10,7 @@ const CATEGORY_KEYS = new Set([
 ]);
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const MONTH_PATTERN = /^\d{4}-\d{2}$/;
 const ID_PATTERN = /^[a-zA-Z0-9._:-]{1,120}$/;
 const MAX_MONEY_VALUE = 999_999_999_999;
 
@@ -98,7 +99,22 @@ export function validateExpense(
   return { id: value.id, ...expense };
 }
 
-export function validateWalletSnapshot(value: unknown): WalletSnapshot {
+export function validateExpenseMonth(date: string, activeMonth: string): void {
+  if (date.slice(0, 7) !== activeMonth.slice(0, 7)) {
+    throw new RequestValidationError(
+      `El gasto debe pertenecer al mes activo (${activeMonth.slice(0, 7)}).`,
+    );
+  }
+}
+
+export function validateReportMonth(value: unknown): string {
+  if (typeof value !== "string" || !MONTH_PATTERN.test(value)) {
+    throw new RequestValidationError("El mes del informe debe usar el formato YYYY-MM.");
+  }
+  return validateDate(`${value}-01`);
+}
+
+export function validateWalletSnapshot(value: unknown): WalletData {
   if (!isRecord(value)) {
     throw new RequestValidationError("La copia de seguridad no es válida.");
   }

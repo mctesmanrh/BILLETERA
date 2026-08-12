@@ -2,11 +2,12 @@ import express from "express";
 import path from "node:path";
 import { createServer as createViteServer } from "vite";
 import { createApp } from "./src/server/app.js";
-import { hasSupabaseConfiguration } from "./src/server/supabase.js";
+import { getPostgresTargetLabel } from "./src/server/postgres.js";
 
 const app = createApp();
 const parsedPort = Number.parseInt(process.env.PORT ?? "3000", 10);
 const port = Number.isInteger(parsedPort) && parsedPort > 0 ? parsedPort : 3000;
+const host = process.env.HOST?.trim() || "127.0.0.1";
 
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {
@@ -23,12 +24,9 @@ async function startServer() {
     });
   }
 
-  app.listen(port, "0.0.0.0", () => {
-    const databaseState = hasSupabaseConfiguration()
-      ? "Supabase configurado"
-      : "Supabase pendiente de configurar";
+  app.listen(port, host, () => {
     console.log(
-      `Tu Billetera disponible en http://localhost:${port} (${databaseState})`,
+      `Tu Billetera disponible en http://${host}:${port} (PostgreSQL: ${getPostgresTargetLabel()})`,
     );
   });
 }

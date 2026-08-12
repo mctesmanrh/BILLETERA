@@ -8,11 +8,23 @@ import NewExpenseForm from "./components/NewExpenseForm";
 import MovementsList from "./components/MovementsList";
 import ExpenseDetail from "./components/ExpenseDetail";
 import TrashBin from "./components/TrashBin";
-import type { Expense, WalletSnapshot } from "./types";
-import { getDailyExpensesSummary } from "./data";
+import type {
+  Expense,
+  MonthlyReport,
+  MonthlyReportSummary,
+  WalletData,
+  WalletSnapshot,
+  AuthUser,
+} from "./types";
+import {
+  formatMonthYearSpanish,
+  getColombiaCurrentMonthStart,
+  getDailyExpensesSummary,
+} from "./data";
 import { PiggyBank, Plus, List, LayoutDashboard, Trash, Download } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import BackupManager from "./components/BackupManager";
+import UserMenu from "./components/UserMenu";
 
 function readStoredExpenses(key: string): Expense[] {
   try {
@@ -21,6 +33,17 @@ function readStoredExpenses(key: string): Expense[] {
     return Array.isArray(parsed) ? (parsed as Expense[]) : [];
   } catch {
     localStorage.removeItem(key);
+    return [];
+  }
+}
+
+function readStoredReports(): MonthlyReportSummary[] {
+  try {
+    const saved = localStorage.getItem("monthlyReports");
+    const parsed: unknown = saved ? JSON.parse(saved) : [];
+    return Array.isArray(parsed) ? (parsed as MonthlyReportSummary[]) : [];
+  } catch {
+    localStorage.removeItem("monthlyReports");
     return [];
   }
 }
@@ -38,7 +61,12 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
   return payload as T;
 }
 
-export default function App() {
+interface AppProps {
+  currentUser: AuthUser;
+  csrfToken: string;
+}
+
+export default function App({ currentUser, csrfToken }: AppProps) {
   const [monthlyBudget, setMonthlyBudget] = useState<number>(() => {
     const saved = localStorage.getItem("monthlyBudget");
     return saved ? Number(saved) : 1500000;
@@ -48,6 +76,12 @@ export default function App() {
   );
   const [deletedExpenses, setDeletedExpenses] = useState<Expense[]>(() =>
     readStoredExpenses("deletedExpenses"),
+  );
+  const [activeMonth, setActiveMonth] = useState<string>(() =>
+    localStorage.getItem("activeMonth") || getColombiaCurrentMonthStart(),
+  );
+  const [monthlyReports, setMonthlyReports] = useState<MonthlyReportSummary[]>(
+    readStoredReports,
   );
   const [syncError, setSyncError] = useState<string | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(true);
@@ -62,12 +96,16 @@ export default function App() {
     setMonthlyBudget(snapshot.monthlyBudget);
     setExpenses(snapshot.expenses);
     setDeletedExpenses(snapshot.deletedExpenses);
+    setActiveMonth(snapshot.activeMonth);
+    setMonthlyReports(snapshot.monthlyReports);
     localStorage.setItem("monthlyBudget", snapshot.monthlyBudget.toString());
     localStorage.setItem("expenses", JSON.stringify(snapshot.expenses));
     localStorage.setItem(
       "deletedExpenses",
       JSON.stringify(snapshot.deletedExpenses),
     );
+    localStorage.setItem("activeMonth", snapshot.activeMonth);
+    localStorage.setItem("monthlyReports", JSON.stringify(snapshot.monthlyReports));
   };
 
   useEffect(() => {
@@ -81,7 +119,7 @@ export default function App() {
       })
       .catch((error: Error) => {
         if (!active) return;
-        console.error("No fue posible cargar Supabase:", error);
+        console.error("No fue posible cargar PostgreSQL:", error);
         setSyncError(
           `${error.message} Se muestran los últimos datos guardados en este navegador.`,
         );
@@ -125,7 +163,7 @@ export default function App() {
     }, 400);
   };
 
-  const handleImportData = async (snapshot: WalletSnapshot) => {
+  const handleImportData = async (snapshot: WalletData) => {
     try {
       const imported = await requestJson<WalletSnapshot & { success: true }>(
         "/api/import",
@@ -147,17 +185,16 @@ export default function App() {
 
   const totalSpent = expenses.reduce((sum, exp) => sum + exp.amount, 0);
   const availableBalance = monthlyBudget - totalSpent;
-  const dailyChartData = getDailyExpensesSummary(expenses);
+  const dailyChartData = getDailyExpensesSummary(expenses, activeMonth);
 
   const handleSaveExpense = async (newExpense: Omit<Expense, "id">) => {
     try {
-      const result = await requestJson<{ expenses: Expense[] }>("/api/expenses", {
+      const result = await requestJson<WalletSnapshot & { expense: Expense }>("/api/expenses", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ expense: newExpense }),
       });
-      setExpenses(result.expenses);
-      localStorage.setItem("expenses", JSON.stringify(result.expenses));
+      applySnapshot(result);
       setCurrentView("dashboard");
       setSyncError(null);
     } catch (error) {
@@ -241,8 +278,11 @@ export default function App() {
               </div>
             </div>
 
-            {/* View Switch Navigation */}
-            <div className="flex items-center gap-2 bg-white p-1 rounded-2xl border border-slate-200/80 shadow-xs">
+            <div className="flex flex-col items-end gap-2">
+              <UserMenu user={currentUser} csrfToken={csrfToken} />
+
+              {/* View Switch Navigation */}
+              <div className="flex items-center gap-2 bg-white p-1 rounded-2xl border border-slate-200/80 shadow-xs">
               <button
                 onClick={() => setCurrentView('dashboard')}
                 className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
@@ -301,12 +341,13 @@ export default function App() {
               <button
                 onClick={() => setIsBackupOpen(true)}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer bg-amber-50 text-amber-800 hover:bg-amber-100/80 border border-amber-200/80"
-                title="Copia de seguridad en tu PC"
+                title="Copias e informes mensuales"
                 id="btn-nav-backup"
               >
                 <Download className="w-3.5 h-3.5 text-amber-600" />
-                <span>Copia PC</span>
+                <span>Informes</span>
               </button>
+              </div>
             </div>
           </header>
 
@@ -323,7 +364,7 @@ export default function App() {
               <span>
                 {syncError
                   ? syncError
-                  : "Conectando con la base de datos Supabase…"}
+                  : "Conectando con la base de datos PostgreSQL…"}
               </span>
               {syncError && (
                 <button
@@ -351,8 +392,12 @@ export default function App() {
                 {/* Header Action Row */}
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                   <div>
-                    <h2 className="text-xl font-bold tracking-tight text-slate-800">Mi Presupuesto Activo</h2>
-                    <p className="text-sm text-slate-400">Resumen y estado de cuenta al día</p>
+                    <h2 className="text-xl font-bold tracking-tight text-slate-800">
+                      Mi Presupuesto Activo
+                    </h2>
+                    <p className="text-sm text-slate-400">
+                      {formatMonthYearSpanish(activeMonth)} · reinicio mensual automático
+                    </p>
                   </div>
                   
                   {/* Primary button to trigger "Nuevo Gasto" in under 1 second */}
@@ -371,6 +416,7 @@ export default function App() {
                   monthlyBudget={monthlyBudget} 
                   totalSpent={totalSpent} 
                   availableBalance={availableBalance} 
+                  activeMonth={activeMonth}
                 />
 
                 {/* Main Workspace Layout Grid */}
@@ -440,6 +486,7 @@ export default function App() {
                 <NewExpenseForm
                   onSave={handleSaveExpense}
                   onCancel={() => setCurrentView('dashboard')}
+                  activeMonth={activeMonth}
                 />
               </motion.div>
             )}
@@ -543,7 +590,7 @@ export default function App() {
         {/* Decorative Theme Footer */}
         <footer className="mt-12 pt-6 border-t border-slate-200/80 flex flex-col sm:flex-row justify-between items-center gap-4">
           <p className="text-[10px] text-slate-300 font-bold uppercase tracking-[0.2em] text-center sm:text-left">
-            Presupuesto mensual inteligente • Supabase • Sistema v.1.1
+            Presupuesto mensual inteligente • PostgreSQL Prisma ORM • Google Auth • Sistema v.2.0
           </p>
           <div className="h-1 w-24 bg-slate-200 rounded-full"></div>
         </footer>
@@ -557,7 +604,12 @@ export default function App() {
         monthlyBudget={monthlyBudget}
         expenses={expenses}
         deletedExpenses={deletedExpenses}
+        activeMonth={activeMonth}
+        monthlyReports={monthlyReports}
         onImportData={handleImportData}
+        onLoadMonthlyReport={(monthStart) =>
+          requestJson<MonthlyReport>(`/api/reports/${monthStart.slice(0, 7)}`)
+        }
       />
     </div>
   );
