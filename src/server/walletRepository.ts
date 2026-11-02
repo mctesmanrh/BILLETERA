@@ -187,6 +187,7 @@ export async function loadWalletSnapshot(): Promise<WalletSnapshot> {
     if (!settings) throw new Error("No existe la configuración main.");
 
     return {
+      displayName: settings.displayName,
       monthlyBudget: toNumber(settings.monthlyBudget),
       expenses: expenses
         .filter((record) => record.deletedAt === null)
@@ -197,6 +198,15 @@ export async function loadWalletSnapshot(): Promise<WalletSnapshot> {
       activeMonth: toDateString(settings.activeMonth),
       monthlyReports: archives.map(archiveToSummary),
     };
+  });
+}
+
+export async function updateDisplayName(displayName: string): Promise<void> {
+  await runRepositoryAction("actualizar el nombre de la billetera", async () => {
+    await getPrismaClient().walletSettings.update({
+      where: { id: "main" },
+      data: { displayName, updatedAt: new Date() },
+    });
   });
 }
 

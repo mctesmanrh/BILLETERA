@@ -32,6 +32,7 @@ export interface MonthlyReport extends MonthlyReportSummary {
 }
 
 export interface WalletSnapshot extends WalletData {
+  displayName: string;
   activeMonth: string;
   monthlyReports: MonthlyReportSummary[];
 }

@@ -46,6 +46,10 @@ principales permanecen disponibles.
 
 Es la vista inicial. Presenta:
 
+- Un nombre compartido editable en la cabecera. El lápiz abre una edición en
+  línea; el visto bueno o la tecla Enter guarda el cambio y la X o Escape lo
+  cancela. El nombre se conserva en PostgreSQL para todas las cuentas
+  autorizadas.
 - El nombre dinámico del mes activo.
 - Presupuesto, Gastado y Disponible.
 - La fórmula `Presupuesto - Gastos = Saldo disponible`.

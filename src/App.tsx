@@ -21,10 +21,23 @@ import {
   getColombiaCurrentMonthStart,
   getDailyExpensesSummary,
 } from "./data";
-import { PiggyBank, Plus, List, LayoutDashboard, Trash, Download } from "lucide-react";
+import {
+  Check,
+  Download,
+  LayoutDashboard,
+  List,
+  LoaderCircle,
+  Pencil,
+  PiggyBank,
+  Plus,
+  Trash,
+  X,
+} from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import BackupManager from "./components/BackupManager";
 import UserMenu from "./components/UserMenu";
+
+const DEFAULT_DISPLAY_NAME = "ANGIE Y JORDAN";
 
 function readStoredExpenses(key: string): Expense[] {
   try {
@@ -67,6 +80,12 @@ interface AppProps {
 }
 
 export default function App({ currentUser, csrfToken }: AppProps) {
+  const [displayName, setDisplayName] = useState(
+    () => localStorage.getItem("walletDisplayName") || DEFAULT_DISPLAY_NAME,
+  );
+  const [displayNameDraft, setDisplayNameDraft] = useState(displayName);
+  const [isEditingDisplayName, setIsEditingDisplayName] = useState(false);
+  const [isSavingDisplayName, setIsSavingDisplayName] = useState(false);
   const [monthlyBudget, setMonthlyBudget] = useState<number>(() => {
     const saved = localStorage.getItem("monthlyBudget");
     return saved ? Number(saved) : 1500000;
@@ -93,11 +112,15 @@ export default function App({ currentUser, csrfToken }: AppProps) {
   const [isBackupOpen, setIsBackupOpen] = useState(false);
 
   const applySnapshot = (snapshot: WalletSnapshot) => {
+    const nextDisplayName = snapshot.displayName || DEFAULT_DISPLAY_NAME;
+    setDisplayName(nextDisplayName);
+    setDisplayNameDraft(nextDisplayName);
     setMonthlyBudget(snapshot.monthlyBudget);
     setExpenses(snapshot.expenses);
     setDeletedExpenses(snapshot.deletedExpenses);
     setActiveMonth(snapshot.activeMonth);
     setMonthlyReports(snapshot.monthlyReports);
+    localStorage.setItem("walletDisplayName", nextDisplayName);
     localStorage.setItem("monthlyBudget", snapshot.monthlyBudget.toString());
     localStorage.setItem("expenses", JSON.stringify(snapshot.expenses));
     localStorage.setItem(
@@ -161,6 +184,52 @@ export default function App({ currentUser, csrfToken }: AppProps) {
           setSyncError(error.message);
         });
     }, 400);
+  };
+
+  const cancelDisplayNameEdit = () => {
+    setDisplayNameDraft(displayName);
+    setIsEditingDisplayName(false);
+    setSyncError(null);
+  };
+
+  const handleSaveDisplayName = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (isSavingDisplayName) return;
+
+    const normalizedName = displayNameDraft.trim().replace(/\s+/g, " ");
+    if (!normalizedName) {
+      setSyncError("Escribe un nombre antes de guardarlo.");
+      return;
+    }
+    if (normalizedName === displayName) {
+      cancelDisplayNameEdit();
+      return;
+    }
+
+    setIsSavingDisplayName(true);
+    try {
+      const result = await requestJson<{
+        success: true;
+        displayName: string;
+      }>("/api/settings/name", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ displayName: normalizedName }),
+      });
+      setDisplayName(result.displayName);
+      setDisplayNameDraft(result.displayName);
+      localStorage.setItem("walletDisplayName", result.displayName);
+      setIsEditingDisplayName(false);
+      setSyncError(null);
+    } catch (error) {
+      setSyncError(
+        error instanceof Error
+          ? error.message
+          : "No se pudo guardar el nombre de la billetera.",
+      );
+    } finally {
+      setIsSavingDisplayName(false);
+    }
   };
 
   const handleImportData = async (snapshot: WalletData) => {
@@ -272,8 +341,72 @@ export default function App({ currentUser, csrfToken }: AppProps) {
               <div className="w-10 h-10 bg-slate-900 rounded-2xl flex items-center justify-center text-white">
                 <PiggyBank className="w-5 h-5" />
               </div>
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight text-slate-800">GASTOS MENSUALES  ANGIE Y JORDAN</h1>
+              <div className="min-w-0">
+                <p className="text-2xl font-bold leading-tight tracking-tight text-slate-800">
+                  GASTOS MENSUALES
+                </p>
+                {isEditingDisplayName ? (
+                  <form
+                    onSubmit={handleSaveDisplayName}
+                    className="mt-0.5 flex max-w-full items-center gap-1.5"
+                  >
+                    <label htmlFor="wallet-display-name" className="sr-only">
+                      Nombre de la billetera
+                    </label>
+                    <input
+                      id="wallet-display-name"
+                      autoFocus
+                      maxLength={60}
+                      value={displayNameDraft}
+                      onChange={(event) => setDisplayNameDraft(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Escape") cancelDisplayNameEdit();
+                      }}
+                      className="min-w-0 w-full max-w-72 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xl font-bold leading-tight tracking-tight text-slate-800 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                    />
+                    <button
+                      type="submit"
+                      disabled={isSavingDisplayName}
+                      aria-label="Guardar nombre"
+                      title="Guardar"
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-900 text-white transition hover:bg-slate-700 disabled:cursor-wait disabled:opacity-60"
+                    >
+                      {isSavingDisplayName ? (
+                        <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Check className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={cancelDisplayNameEdit}
+                      disabled={isSavingDisplayName}
+                      aria-label="Cancelar edición del nombre"
+                      title="Cancelar"
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </form>
+                ) : (
+                  <div className="group mt-0.5 flex min-w-0 items-center gap-1.5">
+                    <h1 className="truncate text-2xl font-bold leading-tight tracking-tight text-slate-800">
+                      {displayName}
+                    </h1>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDisplayNameDraft(displayName);
+                        setIsEditingDisplayName(true);
+                      }}
+                      aria-label="Editar nombre de la billetera"
+                      title="Editar nombre"
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:bg-slate-100 focus-visible:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
                 <p className="text-slate-500 text-xs font-sans">Control rápido e inteligente de tus gastos</p>
               </div>
             </div>

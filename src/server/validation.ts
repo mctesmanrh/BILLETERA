@@ -53,6 +53,21 @@ export function validateBudget(value: unknown): number {
   return value;
 }
 
+export function validateDisplayName(value: unknown): string {
+  if (typeof value !== "string") {
+    throw new RequestValidationError("El nombre de la billetera es obligatorio.");
+  }
+
+  const displayName = value.trim().replace(/\s+/g, " ");
+  if (!displayName || displayName.length > 60) {
+    throw new RequestValidationError(
+      "El nombre de la billetera debe contener entre 1 y 60 caracteres.",
+    );
+  }
+
+  return displayName;
+}
+
 export function validateExpense(
   value: unknown,
   options: { requireId: boolean },

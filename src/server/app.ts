@@ -17,10 +17,12 @@ import {
   restoreExpense,
   softDeleteExpense,
   updateBudget,
+  updateDisplayName,
 } from "./walletRepository.js";
 import {
   RequestValidationError,
   validateBudget,
+  validateDisplayName,
   validateExpense,
   validateExpenseMonth,
   validateReportMonth,
@@ -79,6 +81,15 @@ export function createApp() {
     "/api/data",
     asyncRoute(async (_req, res) => {
       res.json(await loadWalletSnapshot());
+    }),
+  );
+
+  app.post(
+    "/api/settings/name",
+    asyncRoute(async (req, res) => {
+      const displayName = validateDisplayName(req.body?.displayName);
+      await updateDisplayName(displayName);
+      res.json({ success: true, displayName });
     }),
   );
 

@@ -12,6 +12,7 @@ datasource db {
 
 model WalletSettings {
   id            String   @id
+  displayName   String   @default("ANGIE Y JORDAN") @map("display_name")
   monthlyBudget BigInt   @default(1500000) @map("monthly_budget")
   activeMonth   DateTime @map("active_month") @db.Date
   updatedAt     DateTime @default(now()) @map("updated_at") @db.Timestamptz(6)

@@ -60,7 +60,8 @@ flowchart LR
 │   └── migrations/
 │       ├── 001_initial_wallet.sql
 │       ├── 002_isolate_billetera_schema.sql
-│       └── 003_prisma_auth.sql
+│       ├── 003_prisma_auth.sql
+│       └── 004_wallet_display_name.sql
 ├── prisma/
 │   └── schema.prisma
 ├── prisma.config.ts
@@ -151,6 +152,7 @@ Tabla singleton `main`:
 | Columna | Tipo | Regla |
 | --- | --- | --- |
 | `id` | `text` | PK; solo `main` |
+| `display_name` | `text` | Nombre compartido; entre 1 y 60 caracteres |
 | `monthly_budget` | `bigint` | Entero no negativo |
 | `active_month` | `date` | Primer día del mes activo |
 | `updated_at` | `timestamptz` | Última actualización |
@@ -221,6 +223,7 @@ recuperar varios meses pendientes. No requiere `pg_cron` ni un proceso externo.
 | `/api/auth/*` | Inicio, callback y cierre de sesión de Auth.js |
 | `GET /api/data` | Estado del mes e informes disponibles |
 | `GET /api/reports/:month` | Informe completo `YYYY-MM` |
+| `POST /api/settings/name` | Valida y actualiza el nombre compartido |
 | `POST /api/budget` | Actualiza el presupuesto |
 | `POST /api/expenses` | Crea un gasto del mes activo |
 | `DELETE /api/expenses/:id` | Envía a papelera |
@@ -234,6 +237,11 @@ todas las rutas financieras requieren una sesión y responden `401` en caso
 contrario. Prisma parametriza las consultas de modelos; solo el cierre mensual
 usa SQL tipado mediante `$queryRaw`. Los IDs, fechas, categorías, montos y
 descripciones se validan antes de llegar al repositorio.
+
+El nombre del encabezado se normaliza en la API, se guarda en
+`wallet_settings.display_name` y vuelve dentro de cada `WalletSnapshot`. La
+interfaz conserva una copia local solo como caché; la confirmación de
+PostgreSQL determina cuándo la edición se considera guardada.
 
 ## 9. Informes descargables
 
