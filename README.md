@@ -142,12 +142,11 @@ Las rutas financieras `/api/*` exigen una sesión; solo `/api/health`,
 ## Despliegue
 
 El proyecto exclusivo de Vercel es `mctesman/tu-billetera-angie-jordan`. La
-versión del 12 de agosto de 2026 está desplegada en
-`https://billetera-pearl.vercel.app`. El alias se transfirió desde el proyecto
-antiguo `billetera` al proyecto exclusivo y ya sirve la versión PostgreSQL/Prisma,
-sin consultar Supabase. Google OAuth está configurado y el inicio de sesión real
-con `mctesmanrh@gmail.com` fue verificado de extremo a extremo. La página pública
-conserva cerradas las rutas financieras mediante Auth.js.
+versión vigente del 2 de noviembre de 2026 está desplegada en
+`https://billetera-pearl.vercel.app`. El alias pertenece al proyecto exclusivo y
+sirve la versión PostgreSQL/Prisma, sin consultar Supabase. Google OAuth está
+configurado para `mctesmanrh@gmail.com` y `giozulsanty2013@gmail.com`. La página
+pública conserva cerradas las rutas financieras mediante Auth.js.
 
 Producción usa el recurso existente `prisma-postgres-indigo-tree` de Prisma
 Postgres. La conexión está asignada al proyecto de Billetera solo en el entorno
@@ -167,7 +166,8 @@ npx --yes vercel@latest deploy --prebuilt --prod --skip-domain --yes --scope mct
 ```
 
 Usar `--skip-domain` mientras se comprueba una versión protegida. Después de
-comprobar Google Auth, asignar `billetera-pearl.vercel.app` al despliegue aprobado.
+comprobar Google Auth, promover el despliegue aprobado con `vercel promote`; no
+limitarse a asignar el alias a una versión aislada.
 El callback es `https://billetera-pearl.vercel.app/api/auth/callback/google`.
 Una solicitud anónima a `/api/data` responde `401`; el host es público, pero los
 datos financieros no lo son.

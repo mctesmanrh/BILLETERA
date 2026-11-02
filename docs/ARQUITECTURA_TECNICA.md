@@ -2,7 +2,7 @@
 
 ## 1. Estado
 
-Este documento describe la implementación vigente al 12 de agosto de 2026. La
+Este documento describe la implementación vigente al 2 de noviembre de 2026. La
 aplicación es una SPA React atendida por Express y usa PostgreSQL como fuente de
 verdad mediante Prisma ORM. Localmente trabaja con la base `tu_billetera`; en
 Vercel usa el recurso existente Prisma Postgres `prisma-postgres-indigo-tree`.
@@ -329,14 +329,14 @@ contiene 12 gastos activos por 649.200 COP y ninguna fila en la papelera.
 ## 12. Despliegue y seguridad
 
 - Proyecto exclusivo: `mctesman/tu-billetera-angie-jordan`.
-- Despliegue final verificado el 12 de agosto de 2026:
-  `dpl_8jKjzWm4vcKgpHMWFiir2xoSX4ac`, estado `READY`.
+- Despliegue final verificado el 2 de noviembre de 2026:
+  `dpl_799nJKDeApgGM6kbuAh1aBENDJz7`, estado `READY`.
 - Host protegido de esa versión:
-  `https://tu-billetera-angie-jordan-5evsma3wv-mctesman.vercel.app`.
-- Alias público reparado el 12 de agosto de 2026:
-  `https://billetera-pearl.vercel.app`. Fue reasignado desde el proyecto antiguo
-  `billetera` al despliegue exclusivo anterior; no volver a apuntarlo al proyecto
-  que contenía la integración de Supabase.
+  `https://tu-billetera-angie-jordan-67zw4r5s0-mctesman.vercel.app`.
+- Alias público transferido definitivamente el 2 de noviembre de 2026:
+  `https://billetera-pearl.vercel.app`. Su propiedad pasó del proyecto antiguo
+  `billetera` a `tu-billetera-angie-jordan` y el despliegue correcto fue
+  promovido después de la transferencia.
 - En el alias público, la raíz y `/api/health` responden `200`,
   `/api/session` responde `null` y `/api/data` responde `401` sin sesión.
   `health` confirma `database=postgresql`, `orm=prisma` y
@@ -370,10 +370,17 @@ autoriza el origen `https://billetera-pearl.vercel.app` y su callback exacto.
 están guardadas como variables sensibles solo de Production; sus valores no se
 documentan ni se exponen al cliente.
 
-La cuenta de prueba y permitida actual es `mctesmanrh@gmail.com`. El flujo real
-Google → callback de Auth.js → sesión Prisma → Dashboard fue comprobado el 12 de
-agosto de 2026. Para habilitar otra cuenta, agregarla tanto a los usuarios de
-prueba de Google como a `AUTH_ALLOWED_EMAILS` y desplegar de nuevo.
+Las cuentas permitidas actuales son `mctesmanrh@gmail.com` y
+`giozulsanty2013@gmail.com`. Para habilitar otra cuenta, agregarla tanto a los
+usuarios de prueba de Google como a `AUTH_ALLOWED_EMAILS` y desplegar de nuevo.
+
+El 2 de noviembre de 2026 el dominio todavía pertenecía al proyecto antiguo y
+era servido por una versión previa. Esto causó rechazos de la lista de correos y
+coincidió con tiempos de espera del adaptador de Prisma Postgres. La
+reparación transfirió el alias, promovió el despliegue nuevo y volvió a comprobar
+que `/api/health` responde `200`, `/api/session` responde `null`, `/api/data`
+anónimo responde `401`, el inicio OAuth redirige a Google y no quedan errores
+recientes en los registros.
 
 Desplegar versiones candidatas con `--skip-domain`, comprobar `health`, el `401`
 anónimo y un inicio de sesión real antes de mover el alias público estable

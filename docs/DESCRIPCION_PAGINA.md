@@ -10,7 +10,7 @@ Al comenzar un mes nuevo, el periodo anterior se cierra automáticamente. Sus
 movimientos pasan a un informe histórico descargable y el mes vigente vuelve a
 mostrar el presupuesto completo, sin mezclar gastos entre meses.
 
-Esta descripción refleja el comportamiento implementado al 12 de agosto de
+Esta descripción refleja el comportamiento implementado al 2 de noviembre de
 2026. La versión local se abre en `http://127.0.0.1:3002` y la versión pública
 está en `https://billetera-pearl.vercel.app`. Este alias apunta al proyecto
 exclusivo `tu-billetera-angie-jordan`, cuya API usa PostgreSQL con Prisma ORM;
@@ -21,9 +21,9 @@ ya no apunta al despliegue antiguo que dependía de Supabase.
 Al entrar, la página consulta la sesión. Si no existe, muestra una pantalla de
 bienvenida con el botón **Continuar con Google** y no solicita ni muestra ningún
 dato financiero. Solo pueden entrar cuentas verificadas incluidas en la lista de
-correos autorizados. El inicio de sesión de Production está activo y fue probado
-con `mctesmanrh@gmail.com`; cualquier cuenta adicional debe agregarse tanto en
-Google como en la lista privada de Vercel.
+correos autorizados. El inicio de sesión de Production está activo para
+`mctesmanrh@gmail.com` y `giozulsanty2013@gmail.com`; cualquier cuenta adicional
+debe agregarse tanto en Google como en la lista privada de Vercel.
 
 Después de iniciar sesión, la cabecera muestra la foto, nombre y correo de la
 cuenta. El menú de usuario permite cerrar la sesión; al hacerlo también se borra
