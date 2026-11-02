@@ -299,10 +299,12 @@ lsof -nP -iTCP:3002 -sTCP:LISTEN
 
 - PostgreSQL 18.4 activo mediante Homebrew.
 - Base independiente `tu_billetera` creada.
-- Migraciones `001_initial_wallet.sql`, `002_isolate_billetera_schema.sql` y
-  `003_prisma_auth.sql` aplicadas localmente y en Production.
-- Mes activo: `2026-08-01`.
-- Presupuesto activo: 1.500.000 COP.
+- Migraciones `001_initial_wallet.sql`, `002_isolate_billetera_schema.sql`,
+  `003_prisma_auth.sql` y `004_wallet_display_name.sql` aplicadas localmente y
+  en Production.
+- El mes y los importes son estado dinámico. El 2 de noviembre de 2026 la
+  sesión autorizada confirmó el periodo `2026-11-01`; para valores vigentes se
+  debe consultar la API o PostgreSQL.
 - Respaldo local `respaldo_mis_gastos_2026-08-01.json` restaurado sin consultar
   servicios externos.
 - Informe de julio: 28 gastos, 2 eliminados y 776.100 COP gastados.
@@ -338,9 +340,9 @@ contiene 12 gastos activos por 649.200 COP y ninguna fila en la papelera.
 
 - Proyecto exclusivo: `mctesman/tu-billetera-angie-jordan`.
 - Despliegue final verificado el 2 de noviembre de 2026:
-  `dpl_NEmzSph6QpsPXTEUL1gkvhFrgQb7`, estado `READY`.
+  `dpl_8xQSuGk9QFtJT7ri4hTuwZJbaJiW`, estado `READY`.
 - Host protegido de esa versión:
-  `https://tu-billetera-angie-jordan-izeqc8reu-mctesman.vercel.app`.
+  `https://tu-billetera-angie-jordan-5d88e35n4-mctesman.vercel.app`.
 - Alias público transferido definitivamente el 2 de noviembre de 2026:
   `https://billetera-pearl.vercel.app`. Su propiedad pasó del proyecto antiguo
   `billetera` a `tu-billetera-angie-jordan` y el despliegue correcto fue
@@ -350,6 +352,11 @@ contiene 12 gastos activos por 649.200 COP y ninguna fila en la papelera.
   `health` confirma `database=postgresql`, `orm=prisma` y
   `auth.configured=true`. También devuelve `auth.allowedEmailCount=2` sin
   exponer las direcciones.
+- En una sesión autorizada, el Dashboard mostró el lápiz junto al nombre, el
+  campo de edición y los controles de guardar y cancelar. La API local confirmó
+  persistencia tras una recarga y restauró el nombre original después de la
+  prueba. Vercel no registró errores del despliegue dentro de la ventana de
+  retención disponible.
 - Recurso de datos existente: `prisma-postgres-indigo-tree`.
 - La integración entrega `DATABASE_URL`, `PRISMA_DATABASE_URL` y `POSTGRES_URL`
   solo al entorno Production del proyecto de Billetera.
@@ -404,12 +411,12 @@ Los secretos descargados viven en `.env.vercel.production.local` y
 copiarlos a variables `VITE_*`. Para migrar el esquema remoto puede usarse
 `BILLETERA_ENV_FILE=.env.vercel.production.local npm run db:migrate`.
 
-El entorno remoto está en agosto de 2026 con presupuesto de 1.500.000 COP y 12
-gastos activos por 649.200 COP. La carga autorizada del 12 de agosto fue
-selectiva: `scripts/import-expenses-only.ts` validó la copia, insertó solo los
-gastos faltantes y preservó presupuesto, mes activo, informes, papelera y
-sesiones. El modo normal es simulación; `--apply` habilita la escritura y
-`--production` exige que Vercel confirme `VERCEL_ENV=production`.
+La carga autorizada del 12 de agosto de 2026 fue selectiva:
+`scripts/import-expenses-only.ts` validó la copia, insertó solo los gastos
+faltantes y preservó presupuesto, mes activo, informes, papelera y sesiones.
+Es un antecedente histórico, no una descripción del saldo vigente. El modo
+normal es simulación; `--apply` habilita la escritura y `--production` exige que
+Vercel confirme `VERCEL_ENV=production`.
 
 Los borrados definitivos y la importación completa son operaciones destructivas,
 por lo que la interfaz mantiene confirmaciones y copias JSON recuperables.
