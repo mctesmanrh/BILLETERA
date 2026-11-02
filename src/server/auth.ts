@@ -28,16 +28,32 @@ export const authConfig: ExpressAuthConfig = {
   trustHost: true,
   callbacks: {
     async signIn({ account, profile, user }) {
-      if (account?.provider !== "google") return false;
+      if (account?.provider !== "google") {
+        console.error("Inicio de sesión rechazado: proveedor distinto de Google.");
+        return false;
+      }
       const email = (profile?.email || user.email || "").trim().toLowerCase();
-      if (!email || !isVerifiedGoogleProfile(profile)) return false;
+      if (!email) {
+        console.error("Inicio de sesión rechazado: Google no entregó un correo.");
+        return false;
+      }
+      if (!isVerifiedGoogleProfile(profile)) {
+        console.error("Inicio de sesión rechazado: Google no confirmó el correo.");
+        return false;
+      }
 
       const allowed = allowedGoogleEmails();
       if (process.env.VERCEL && allowed.size === 0) {
         console.error("AUTH_ALLOWED_EMAILS es obligatorio en producción.");
         return false;
       }
-      return allowed.size === 0 || allowed.has(email);
+      if (allowed.size > 0 && !allowed.has(email)) {
+        console.error(
+          "Inicio de sesión rechazado: el correo de Google no está en AUTH_ALLOWED_EMAILS.",
+        );
+        return false;
+      }
+      return true;
     },
   },
 };
@@ -86,13 +102,15 @@ export async function requireAuthenticatedUser(
 }
 
 export function getAuthConfigurationStatus() {
+  const allowedEmailCount = allowedGoogleEmails().size;
   return {
     provider: "google",
+    allowedEmailCount,
     configured: Boolean(
       process.env.AUTH_SECRET &&
       process.env.AUTH_GOOGLE_ID &&
       process.env.AUTH_GOOGLE_SECRET &&
-      (!process.env.VERCEL || allowedGoogleEmails().size > 0)
+      (!process.env.VERCEL || allowedEmailCount > 0)
     ),
   };
 }
