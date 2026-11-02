@@ -147,6 +147,9 @@ versión vigente del 2 de noviembre de 2026 está desplegada en
 sirve la versión PostgreSQL/Prisma, sin consultar Supabase. Google OAuth está
 configurado para `mctesmanrh@gmail.com` y `giozulsanty2013@gmail.com`. La página
 pública conserva cerradas las rutas financieras mediante Auth.js.
+`/api/health` expone únicamente la cantidad de correos cargados, no sus valores;
+en Production debe indicar `allowedEmailCount: 2` mientras estas dos cuentas
+sean las únicas autorizadas.
 
 Producción usa el recurso existente `prisma-postgres-indigo-tree` de Prisma
 Postgres. La conexión está asignada al proyecto de Billetera solo en el entorno

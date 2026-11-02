@@ -330,9 +330,9 @@ contiene 12 gastos activos por 649.200 COP y ninguna fila en la papelera.
 
 - Proyecto exclusivo: `mctesman/tu-billetera-angie-jordan`.
 - Despliegue final verificado el 2 de noviembre de 2026:
-  `dpl_799nJKDeApgGM6kbuAh1aBENDJz7`, estado `READY`.
+  `dpl_NEmzSph6QpsPXTEUL1gkvhFrgQb7`, estado `READY`.
 - Host protegido de esa versión:
-  `https://tu-billetera-angie-jordan-67zw4r5s0-mctesman.vercel.app`.
+  `https://tu-billetera-angie-jordan-izeqc8reu-mctesman.vercel.app`.
 - Alias público transferido definitivamente el 2 de noviembre de 2026:
   `https://billetera-pearl.vercel.app`. Su propiedad pasó del proyecto antiguo
   `billetera` a `tu-billetera-angie-jordan` y el despliegue correcto fue
@@ -340,7 +340,8 @@ contiene 12 gastos activos por 649.200 COP y ninguna fila en la papelera.
 - En el alias público, la raíz y `/api/health` responden `200`,
   `/api/session` responde `null` y `/api/data` responde `401` sin sesión.
   `health` confirma `database=postgresql`, `orm=prisma` y
-  `auth.configured=true`.
+  `auth.configured=true`. También devuelve `auth.allowedEmailCount=2` sin
+  exponer las direcciones.
 - Recurso de datos existente: `prisma-postgres-indigo-tree`.
 - La integración entrega `DATABASE_URL`, `PRISMA_DATABASE_URL` y `POSTGRES_URL`
   solo al entorno Production del proyecto de Billetera.
@@ -373,6 +374,8 @@ documentan ni se exponen al cliente.
 Las cuentas permitidas actuales son `mctesmanrh@gmail.com` y
 `giozulsanty2013@gmail.com`. Para habilitar otra cuenta, agregarla tanto a los
 usuarios de prueba de Google como a `AUTH_ALLOWED_EMAILS` y desplegar de nuevo.
+El callback registra únicamente la razón de un rechazo —proveedor, correo
+ausente, verificación o lista— y nunca imprime la dirección recibida.
 
 El 2 de noviembre de 2026 el dominio todavía pertenecía al proyecto antiguo y
 era servido por una versión previa. Esto causó rechazos de la lista de correos y
