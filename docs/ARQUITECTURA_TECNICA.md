@@ -368,10 +368,10 @@ contiene 12 gastos activos por 649.200 COP y ninguna fila en la papelera.
 ## 12. Despliegue y seguridad
 
 - Proyecto exclusivo: `mctesman/tu-billetera-angie-jordan`.
-- Despliegue final verificado el 2 de noviembre de 2026:
-  `dpl_8xQSuGk9QFtJT7ri4hTuwZJbaJiW`, estado `READY`.
+- Despliegue final verificado el 5 de noviembre de 2026:
+  `dpl_3vNkfXyqumCvtaU5f9tmTzA6Kavt`, estado `READY`.
 - Host protegido de esa versión:
-  `https://tu-billetera-angie-jordan-5d88e35n4-mctesman.vercel.app`.
+  `https://tu-billetera-angie-jordan-o6piawdyv-mctesman.vercel.app`.
 - Alias público transferido definitivamente el 2 de noviembre de 2026:
   `https://billetera-pearl.vercel.app`. Su propiedad pasó del proyecto antiguo
   `billetera` a `tu-billetera-angie-jordan` y el despliegue correcto fue
@@ -381,11 +381,10 @@ contiene 12 gastos activos por 649.200 COP y ninguna fila en la papelera.
   `health` confirma `database=postgresql`, `orm=prisma` y
   `auth.configured=true`. También devuelve `auth.allowedEmailCount=2` sin
   exponer las direcciones.
-- En una sesión autorizada, el Dashboard mostró el lápiz junto al nombre, el
-  campo de edición y los controles de guardar y cancelar. La API local confirmó
-  persistencia tras una recarga y restauró el nombre original después de la
-  prueba. Vercel no registró errores del despliegue dentro de la ventana de
-  retención disponible.
+- En una sesión autorizada, el Dashboard recuperó el nombre personal y los
+  importes históricos después de recargar el alias público. La sesión incluyó
+  el `user.id` de Auth.js, no apareció ninguna alerta de conexión y Vercel no
+  registró errores del despliegue dentro de la ventana consultada.
 - Recurso de datos existente: `prisma-postgres-indigo-tree`.
 - La integración entrega `DATABASE_URL`, `PRISMA_DATABASE_URL` y `POSTGRES_URL`
   solo al entorno Production del proyecto de Billetera.
