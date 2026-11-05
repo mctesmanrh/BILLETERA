@@ -10,6 +10,7 @@
     "db:generate": "prisma generate",
     "db:migrate": "tsx database/migrate.ts && prisma generate",
     "db:import-expenses": "tsx scripts/import-expenses-only.ts",
+    "db:claim-legacy": "tsx scripts/claim-legacy-wallet-owner.ts",
     "test:isolation": "tsx scripts/test-wallet-isolation.ts",
     "dev": "tsx server.ts",
     "build": "prisma generate && vite build && esbuild server.ts --bundle --platform=node --format=esm --packages=external --sourcemap --outfile=dist/server.js",

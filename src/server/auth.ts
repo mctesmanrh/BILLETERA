@@ -28,6 +28,12 @@ export const authConfig: ExpressAuthConfig = {
   session: { strategy: "database", maxAge: 30 * 24 * 60 * 60 },
   trustHost: true,
   callbacks: {
+    async session({ session, user }) {
+      if (session.user) {
+        session.user.id = user.id;
+      }
+      return session;
+    },
     async signIn({ account, profile, user }) {
       if (account?.provider !== "google") {
         console.error("Inicio de sesión rechazado: proveedor distinto de Google.");

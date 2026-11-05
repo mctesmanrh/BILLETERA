@@ -71,7 +71,9 @@ flowchart LR
 │   └── index.ts
 ├── docs/
 ├── scripts/
+│   ├── claim-legacy-wallet-owner.ts
 │   ├── import-expenses-only.ts
+│   ├── test-wallet-isolation.ts
 │   └── macos/
 │       └── com.jordan.tu-billetera.plist
 ├── src/
@@ -112,6 +114,11 @@ Responsabilidades:
 - `scripts/import-expenses-only.ts`: inserta solo gastos faltantes de una copia
   validada en el propietario indicado por `BILLETERA_OWNER_EMAIL`; no reemplaza
   presupuesto, mes, informes, papelera ni sesiones.
+- `scripts/claim-legacy-wallet-owner.ts`: asigna una billetera anterior a la
+  cuenta Auth.js indicada, después de una simulación y sin mezclar dos
+  billeteras existentes.
+- `scripts/test-wallet-isolation.ts`: comprueba separación de nombres,
+  presupuestos, gastos e identificadores entre dos propietarios.
 - `scripts/macos/com.jordan.tu-billetera.plist`: servicio de usuario que mantiene
   la aplicación local activa en macOS.
 
@@ -128,6 +135,7 @@ AUTH_SECRET="una-clave-aleatoria-larga"
 AUTH_GOOGLE_ID="cliente-oauth-de-google"
 AUTH_GOOGLE_SECRET="secreto-oauth-de-google"
 AUTH_ALLOWED_EMAILS="correo1@gmail.com,correo2@gmail.com"
+BILLETERA_LEGACY_OWNER_EMAIL="cuenta-principal@gmail.com"
 AUTH_LOCAL_BYPASS="false"
 ```
 
@@ -250,6 +258,10 @@ incluye ese `owner_id` en cada lectura, creación, actualización, borrado,
 restauración, importación e informe. Prisma parametriza las consultas de
 modelos; solo el cierre mensual usa SQL tipado mediante `$queryRaw`.
 
+El callback de sesión de Auth.js agrega explícitamente el identificador interno
+del usuario a `session.user.id`. El nombre, correo o fotografía de Google no se
+usan como clave de propiedad y no sustituyen ese identificador.
+
 El nombre del encabezado se normaliza en la API, se guarda en la fila del
 usuario y vuelve dentro de su `WalletSnapshot`. La confirmación de PostgreSQL
 determina cuándo la edición se considera guardada.
@@ -311,8 +323,14 @@ lsof -nP -iTCP:3002 -sTCP:LISTEN
 - PostgreSQL 18.4 activo mediante Homebrew.
 - Base independiente `tu_billetera` creada.
 - Migraciones `001_initial_wallet.sql`, `002_isolate_billetera_schema.sql`,
-  `003_prisma_auth.sql` y `004_wallet_display_name.sql` aplicadas localmente y
-  en Production.
+  `003_prisma_auth.sql`, `004_wallet_display_name.sql` y
+  `005_private_wallets_by_user.sql` aplicadas localmente y en Production.
+- `npm run test:isolation` confirmó nombres, presupuestos y gastos separados,
+  identificadores de gasto repetibles entre propietarios y bloqueo de una
+  modificación cruzada.
+- La billetera histórica de Production fue asignada a la cuenta principal sin
+  cambiar su contenido: 6 gastos vigentes y 3 informes conservaron sus datos y
+  solo recibieron el propietario Auth.js correspondiente.
 - El mes y los importes son estado dinámico. El 2 de noviembre de 2026 la
   sesión autorizada confirmó el periodo `2026-11-01`; para valores vigentes se
   debe consultar la API o PostgreSQL.
@@ -393,9 +411,11 @@ Vercel Authentication protege las URLs únicas de despliegue y Auth.js protege e
 alias público. El proyecto Google Cloud independiente es `Tu Billetera`
 (`static-welder-505317-g2`), con público externo en modo Prueba. El cliente web
 autoriza el origen `https://billetera-pearl.vercel.app` y su callback exacto.
-`AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET` y `AUTH_ALLOWED_EMAILS`
-están guardadas como variables sensibles solo de Production; sus valores no se
-documentan ni se exponen al cliente.
+`AUTH_SECRET`, `AUTH_GOOGLE_ID`, `AUTH_GOOGLE_SECRET`, `AUTH_ALLOWED_EMAILS` y
+`BILLETERA_LEGACY_OWNER_EMAIL` están guardadas como variables sensibles solo de
+Production; sus valores no se documentan ni se exponen al cliente. La última
+variable solo permite reclamar de forma segura una instalación antigua que aún
+use el propietario reservado `legacy-shared-wallet`.
 
 Las cuentas permitidas actuales son `mctesmanrh@gmail.com` y
 `giozulsanty2013@gmail.com`. Para habilitar otra cuenta, agregarla tanto a los

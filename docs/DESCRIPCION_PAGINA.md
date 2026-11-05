@@ -32,7 +32,8 @@ acceso sin conservar datos financieros en el navegador.
 Cada cuenta autorizada tiene una billetera privada. El nombre, presupuesto,
 gastos, papelera e informes de una cuenta no se consultan ni se modifican desde
 otra cuenta. Una cuenta nueva comienza con su propio presupuesto y sin
-movimientos.
+movimientos; el encabezado usa inicialmente el nombre de Google y después cada
+usuario puede personalizarlo sin cambiar el nombre de nadie más.
 
 ## 3. Navegación
 
