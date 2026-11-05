@@ -2,6 +2,7 @@ import { ExpressAuth, getSession, type ExpressAuthConfig } from "@auth/express";
 import Google from "@auth/express/providers/google";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import type { NextFunction, Request, Response } from "express";
+import type { WalletOwner } from "../types.js";
 import { getPrismaClient } from "./prisma.js";
 
 function allowedGoogleEmails(): Set<string> {
@@ -97,6 +98,15 @@ export async function requireAuthenticatedUser(
     res.status(401).json({ error: "Debes iniciar sesión con Google." });
     return;
   }
+  if (typeof session.user.id !== "string" || !session.user.id.trim()) {
+    res.status(401).json({ error: "La sesión de Google no tiene un usuario válido." });
+    return;
+  }
+  res.locals.walletOwner = {
+    id: session.user.id,
+    name: session.user.name,
+    email: session.user.email,
+  } satisfies WalletOwner;
   res.locals.session = session;
   next();
 }

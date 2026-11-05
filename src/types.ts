@@ -49,6 +49,12 @@ export interface AuthSession {
   expires: string;
 }
 
+export interface WalletOwner {
+  id: string;
+  name?: string | null;
+  email?: string | null;
+}
+
 export interface DailyExpenseSummary {
   dateLabel: string; // e.g. "Lun 13"
   fullDateLabel: string; // e.g. "Lunes, 13 de Julio"

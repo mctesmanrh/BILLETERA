@@ -55,10 +55,17 @@ async function main(): Promise<void> {
     .find((argument) => !argument.startsWith("--"));
   const apply = process.argv.includes("--apply");
   const production = process.argv.includes("--production");
+  const ownerEmail = (process.env.BILLETERA_OWNER_EMAIL || "").trim();
 
   if (!backupArgument) {
     throw new Error(
       "Uso: npm run db:import-expenses -- <respaldo.json> [--apply] [--production]",
+    );
+  }
+
+  if (!ownerEmail) {
+    throw new Error(
+      "BILLETERA_OWNER_EMAIL es obligatorio para elegir la billetera de destino.",
     );
   }
 
@@ -72,8 +79,15 @@ async function main(): Promise<void> {
   const parsed = JSON.parse(await readFile(backupPath, "utf8")) as unknown;
   const snapshot = validateWalletSnapshot(parsed);
   const prisma = getPrismaClient();
+  const owner = await prisma.user.findFirst({
+    where: { email: { equals: ownerEmail, mode: "insensitive" } },
+    select: { id: true },
+  });
+  if (!owner) {
+    throw new Error("No existe un usuario Auth.js para la cuenta indicada.");
+  }
   const settings = await prisma.walletSettings.findUniqueOrThrow({
-    where: { id: "main" },
+    where: { ownerId: owner.id },
   });
   const activeMonth = toDateString(settings.activeMonth);
 
@@ -82,7 +96,10 @@ async function main(): Promise<void> {
   }
 
   const existing = await prisma.expenseRecord.findMany({
-    where: { id: { in: snapshot.expenses.map((expense) => expense.id) } },
+    where: {
+      ownerId: owner.id,
+      id: { in: snapshot.expenses.map((expense) => expense.id) },
+    },
   });
   const backupById = new Map(snapshot.expenses.map((expense) => [expense.id, expense]));
   const conflictingIds = existing
@@ -103,7 +120,7 @@ async function main(): Promise<void> {
     (expense) => !existingIds.has(expense.id),
   );
   const before = await prisma.expenseRecord.aggregate({
-    where: { deletedAt: null },
+    where: { ownerId: owner.id, deletedAt: null },
     _count: { id: true },
     _sum: { amount: true },
   });
@@ -114,11 +131,13 @@ async function main(): Promise<void> {
         await transaction.$queryRaw`
           select 1 as locked
           from (
-            select pg_advisory_xact_lock(hashtext('tu-billetera-wallet-import'))
+            select pg_advisory_xact_lock(
+              hashtext('tu-billetera-wallet-import:' || ${owner.id})
+            )
           ) as wallet_import_lock
         `;
         const currentSettings = await transaction.walletSettings.findUniqueOrThrow({
-          where: { id: "main" },
+          where: { ownerId: owner.id },
         });
         const currentMonth = toDateString(currentSettings.activeMonth);
 
@@ -129,6 +148,7 @@ async function main(): Promise<void> {
         if (missingExpenses.length > 0) {
           await transaction.expenseRecord.createMany({
             data: missingExpenses.map((expense) => ({
+              ownerId: owner.id,
               id: expense.id,
               amount: BigInt(expense.amount),
               category: expense.category,
@@ -145,7 +165,7 @@ async function main(): Promise<void> {
 
   const after = apply
     ? await prisma.expenseRecord.aggregate({
-        where: { deletedAt: null },
+        where: { ownerId: owner.id, deletedAt: null },
         _count: { id: true },
         _sum: { amount: true },
       })

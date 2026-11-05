@@ -6,14 +6,6 @@ interface UserMenuProps {
   csrfToken: string;
 }
 
-const CACHE_KEYS = [
-  "monthlyBudget",
-  "expenses",
-  "deletedExpenses",
-  "activeMonth",
-  "monthlyReports",
-];
-
 export default function UserMenu({ user, csrfToken }: UserMenuProps) {
   const localBypass = user.id === "local-development";
   const label = user.name || user.email || "Cuenta de Google";
@@ -42,7 +34,6 @@ export default function UserMenu({ user, csrfToken }: UserMenuProps) {
         <form
           method="post"
           action="/api/auth/signout"
-          onSubmit={() => CACHE_KEYS.forEach((key) => localStorage.removeItem(key))}
         >
           <input type="hidden" name="csrfToken" value={csrfToken} />
           <input type="hidden" name="callbackUrl" value="/" />

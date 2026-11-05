@@ -3,14 +3,14 @@
 ## 1. Resumen
 
 Tu Billetera es una aplicación web personal para registrar y visualizar los
-gastos mensuales de Angie y Jordan en pesos colombianos (COP). La página permite
+gastos mensuales de cada usuario en pesos colombianos (COP). La página permite
 conocer el presupuesto del mes, cuánto se ha gastado y cuánto queda disponible.
 
 Al comenzar un mes nuevo, el periodo anterior se cierra automáticamente. Sus
 movimientos pasan a un informe histórico descargable y el mes vigente vuelve a
 mostrar el presupuesto completo, sin mezclar gastos entre meses.
 
-Esta descripción refleja el comportamiento implementado al 2 de noviembre de
+Esta descripción refleja el comportamiento implementado al 5 de noviembre de
 2026. La versión local se abre en `http://127.0.0.1:3002` y la versión pública
 está en `https://billetera-pearl.vercel.app`. Este alias apunta al proyecto
 exclusivo `tu-billetera-angie-jordan`, cuya API usa PostgreSQL con Prisma ORM;
@@ -26,8 +26,13 @@ correos autorizados. El inicio de sesión de Production está activo para
 debe agregarse tanto en Google como en la lista privada de Vercel.
 
 Después de iniciar sesión, la cabecera muestra la foto, nombre y correo de la
-cuenta. El menú de usuario permite cerrar la sesión; al hacerlo también se borra
-la caché financiera del navegador.
+cuenta. El menú de usuario permite cerrar la sesión y volver a la pantalla de
+acceso sin conservar datos financieros en el navegador.
+
+Cada cuenta autorizada tiene una billetera privada. El nombre, presupuesto,
+gastos, papelera e informes de una cuenta no se consultan ni se modifican desde
+otra cuenta. Una cuenta nueva comienza con su propio presupuesto y sin
+movimientos.
 
 ## 3. Navegación
 
@@ -46,10 +51,10 @@ principales permanecen disponibles.
 
 Es la vista inicial. Presenta:
 
-- Un nombre compartido editable en la cabecera. El lápiz abre una edición en
+- Un nombre personal editable en la cabecera. El lápiz abre una edición en
   línea; el visto bueno o la tecla Enter guarda el cambio y la X o Escape lo
-  cancela. El nombre se conserva en PostgreSQL para todas las cuentas
-  autorizadas.
+  cancela. El nombre se conserva en PostgreSQL únicamente para el usuario
+  autenticado.
 - El nombre dinámico del mes activo.
 - Presupuesto, Gastado y Disponible.
 - La fórmula `Presupuesto - Gastos = Saldo disponible`.
@@ -118,16 +123,18 @@ PostgreSQL. Si cambió:
 3. Retira esos movimientos de la lista activa.
 4. Activa el mes actual con cero gastado y el presupuesto configurado disponible.
 
-La operación es transaccional e idempotente: varias solicitudes simultáneas no
-crean cierres duplicados.
+La operación es transaccional, idempotente y aislada por usuario: varias
+solicitudes simultáneas no crean cierres duplicados ni mezclan periodos de otras
+cuentas.
 
 ## 9. Persistencia percibida
 
-PostgreSQL, consultado mediante Prisma ORM, es la fuente de verdad. React conserva en
-`localStorage` la última respuesta válida como caché para mostrar información si
-la conexión falla temporalmente, pero solo presenta una escritura como guardada
-después de que Express la confirma. En producción, los datos viven dentro del
-esquema aislado `billetera` del PostgreSQL Prisma ORM existente.
+PostgreSQL, consultado mediante Prisma ORM, es la fuente de verdad. React conserva
+los datos financieros únicamente en memoria durante la sesión visible; no deja
+presupuestos ni movimientos en `localStorage`, lo que evita mostrar información
+de una cuenta anterior al cambiar de usuario en el mismo navegador. En
+producción, los datos viven dentro del esquema aislado `billetera` del
+PostgreSQL Prisma ORM existente.
 
 Los respaldos JSON siguen siendo útiles para recuperación o traslado. La
 importación reemplaza los gastos dentro de una transacción y cierra de inmediato
@@ -146,10 +153,10 @@ riesgo alto o saldo negativo.
 
 ## 11. Alcance actual
 
-La versión actual administra una billetera compartida y una moneda. No incluye
+La versión actual administra una billetera privada por usuario y una moneda. No incluye
 ingresos, varias billeteras, edición de gastos, presupuestos por categoría,
-gastos recurrentes ni permisos distintos por persona. Sí incluye autenticación
-propia con Google; las cuentas autorizadas comparten la misma billetera.
+gastos recurrentes ni roles internos. Sí incluye autenticación propia con
+Google y separación completa de los datos según el identificador de la cuenta.
 
 El 12 de agosto de 2026 se transfirieron a Prisma Postgres de Production solo
 los datos de los gastos activos del respaldo de esa fecha: 12 movimientos de

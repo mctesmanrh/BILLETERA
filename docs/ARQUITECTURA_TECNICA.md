@@ -2,7 +2,7 @@
 
 ## 1. Estado
 
-Este documento describe la implementación vigente al 2 de noviembre de 2026. La
+Este documento describe la implementación vigente al 5 de noviembre de 2026. La
 aplicación es una SPA React atendida por Express y usa PostgreSQL como fuente de
 verdad mediante Prisma ORM. Localmente trabaja con la base `tu_billetera`; en
 Vercel usa el recurso existente Prisma Postgres `prisma-postgres-indigo-tree`.
@@ -35,7 +35,6 @@ Los datos financieros viven en `billetera` y las cuentas OAuth y sesiones en
 flowchart LR
     U["Usuario"] --> G["Google OAuth"]
     G --> R["React SPA"]
-    R <--> C["localStorage (caché)"]
     R -->|"fetch /api/*"| E["Express"]
     E --> A["Auth.js"]
     E -->|"Prisma ORM"| P["PostgreSQL / billetera"]
@@ -47,7 +46,9 @@ flowchart LR
 - Express es la única capa que abre conexiones PostgreSQL.
 - Auth.js valida Google y crea sesiones persistentes de 30 días.
 - En Vercel solo se aceptan correos incluidos en `AUTH_ALLOWED_EMAILS`.
-- `localStorage` es caché de lectura, no fuente de verdad.
+- Los datos financieros permanecen en memoria de React y no se guardan en
+  `localStorage`, para impedir fugas visuales al cambiar de cuenta.
+- Cada consulta y escritura recibe el `user.id` validado por Auth.js.
 - Las escrituras se reflejan después de la confirmación de la API.
 - La conexión usa un pool limitado y tiempos máximos de espera.
 
@@ -61,7 +62,8 @@ flowchart LR
 │       ├── 001_initial_wallet.sql
 │       ├── 002_isolate_billetera_schema.sql
 │       ├── 003_prisma_auth.sql
-│       └── 004_wallet_display_name.sql
+│       ├── 004_wallet_display_name.sql
+│       └── 005_private_wallets_by_user.sql
 ├── prisma/
 │   └── schema.prisma
 ├── prisma.config.ts
@@ -106,9 +108,10 @@ Responsabilidades:
 - `src/server/app.ts`: contratos HTTP y manejo de errores.
 - `src/server/validation.ts`: validación de entrada y respaldos.
 - `src/monthlyReportDocument.ts`: genera el documento HTML descargable.
-- `src/App.tsx`: navegación, estado, caché y llamadas a la API.
+- `src/App.tsx`: navegación, estado en memoria y llamadas a la API.
 - `scripts/import-expenses-only.ts`: inserta solo gastos faltantes de una copia
-  validada; no reemplaza presupuesto, mes, informes, papelera ni sesiones.
+  validada en el propietario indicado por `BILLETERA_OWNER_EMAIL`; no reemplaza
+  presupuesto, mes, informes, papelera ni sesiones.
 - `scripts/macos/com.jordan.tu-billetera.plist`: servicio de usuario que mantiene
   la aplicación local activa en macOS.
 
@@ -147,12 +150,13 @@ conserva las tablas de la aplicación Supervisar y no es consultado por Billeter
 
 ### `wallet_settings`
 
-Tabla singleton `main`:
+Una fila por usuario autenticado:
 
 | Columna | Tipo | Regla |
 | --- | --- | --- |
-| `id` | `text` | PK; solo `main` |
-| `display_name` | `text` | Nombre compartido; entre 1 y 60 caracteres |
+| `id` | `text` | PK interna de la configuración |
+| `owner_id` | `text` | Identificador Auth.js único del propietario |
+| `display_name` | `text` | Nombre personal; entre 1 y 60 caracteres |
 | `monthly_budget` | `bigint` | Entero no negativo |
 | `active_month` | `date` | Primer día del mes activo |
 | `updated_at` | `timestamptz` | Última actualización |
@@ -161,7 +165,8 @@ Tabla singleton `main`:
 
 | Columna | Tipo | Regla |
 | --- | --- | --- |
-| `id` | `text` | PK generada por Express |
+| `id` | `text` | Identificador generado por Express |
+| `owner_id` | `text` | Propietario Auth.js |
 | `amount` | `bigint` | Entero positivo |
 | `category` | `text` | Una de las seis categorías |
 | `spent_on` | `date` | Fecha del mes activo |
@@ -170,13 +175,16 @@ Tabla singleton `main`:
 | `created_at` | `timestamptz` | Creación |
 | `updated_at` | `timestamptz` | Último cambio |
 
-Hay índices parciales para activos por fecha y para la papelera.
+La PK es compuesta por `owner_id` e `id`, por lo que dos usuarios pueden
+restaurar copias con los mismos identificadores sin colisionar. Hay índices
+parciales por propietario para activos por fecha y para la papelera.
 
 ### `monthly_archives`
 
 | Columna | Tipo | Contenido |
 | --- | --- | --- |
-| `month_start` | `date` | PK y primer día del mes |
+| `month_start` | `date` | Primer día del mes |
+| `owner_id` | `text` | Propietario Auth.js |
 | `monthly_budget` | `bigint` | Presupuesto del periodo |
 | `total_spent` | `bigint` | Total de gastos activos |
 | `expense_count` | `bigint` | Cantidad de activos |
@@ -184,6 +192,8 @@ Hay índices parciales para activos por fecha y para la papelera.
 | `expenses` | `jsonb` | Detalle para el informe |
 | `deleted_expenses` | `jsonb` | Detalle de papelera |
 | `archived_at` | `timestamptz` | Fecha del cierre |
+
+La PK de los informes es compuesta por `owner_id` y `month_start`.
 
 ### `schema_migrations`
 
@@ -198,18 +208,19 @@ No almacenar estas tablas en `public` ni mezclarlas con los gastos.
 
 ## 7. Cierre mensual
 
-`billetera.rollover_wallet_month(target_month)` ejecuta todo el cambio dentro de
-la misma transacción PostgreSQL:
+`billetera.rollover_wallet_month_for_owner(owner_id, target_month)` ejecuta todo
+el cambio de una sola billetera dentro de la misma transacción PostgreSQL:
 
 1. Valida que el destino sea el primer día del mes actual de Colombia.
-2. Toma un bloqueo asesor transaccional para evitar cierres simultáneos.
+2. Toma un bloqueo asesor transaccional específico del usuario para evitar
+   cierres simultáneos.
 3. Bloquea la fila de configuración.
 4. Agrega gastos y papelera por cada mes pendiente.
 5. Inserta o actualiza la instantánea de `monthly_archives`.
 6. Elimina únicamente las filas pertenecientes al mes ya archivado.
 7. Avanza `active_month`.
 
-La API llama esta función al cargar datos, comprobar salud y antes de las
+La API llama esta función al cargar los datos del usuario y antes de las
 escrituras relevantes. Este cierre perezoso funciona aunque el computador haya
 estado apagado el día primero: ocurre en la primera solicitud posterior y puede
 recuperar varios meses pendientes. No requiere `pg_cron` ni un proceso externo.
@@ -223,7 +234,7 @@ recuperar varios meses pendientes. No requiere `pg_cron` ni un proceso externo.
 | `/api/auth/*` | Inicio, callback y cierre de sesión de Auth.js |
 | `GET /api/data` | Estado del mes e informes disponibles |
 | `GET /api/reports/:month` | Informe completo `YYYY-MM` |
-| `POST /api/settings/name` | Valida y actualiza el nombre compartido |
+| `POST /api/settings/name` | Valida y actualiza el nombre personal |
 | `POST /api/budget` | Actualiza el presupuesto |
 | `POST /api/expenses` | Crea un gasto del mes activo |
 | `DELETE /api/expenses/:id` | Envía a papelera |
@@ -234,14 +245,14 @@ recuperar varios meses pendientes. No requiere `pg_cron` ni un proceso externo.
 
 El JSON está limitado a 1 MB. `health`, `session` y `auth` son rutas públicas;
 todas las rutas financieras requieren una sesión y responden `401` en caso
-contrario. Prisma parametriza las consultas de modelos; solo el cierre mensual
-usa SQL tipado mediante `$queryRaw`. Los IDs, fechas, categorías, montos y
-descripciones se validan antes de llegar al repositorio.
+contrario. El middleware convierte la sesión en un propietario y el repositorio
+incluye ese `owner_id` en cada lectura, creación, actualización, borrado,
+restauración, importación e informe. Prisma parametriza las consultas de
+modelos; solo el cierre mensual usa SQL tipado mediante `$queryRaw`.
 
-El nombre del encabezado se normaliza en la API, se guarda en
-`wallet_settings.display_name` y vuelve dentro de cada `WalletSnapshot`. La
-interfaz conserva una copia local solo como caché; la confirmación de
-PostgreSQL determina cuándo la edición se considera guardada.
+El nombre del encabezado se normaliza en la API, se guarda en la fila del
+usuario y vuelve dentro de su `WalletSnapshot`. La confirmación de PostgreSQL
+determina cuándo la edición se considera guardada.
 
 ## 9. Informes descargables
 

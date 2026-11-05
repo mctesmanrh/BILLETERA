@@ -12,6 +12,7 @@ datasource db {
 
 model WalletSettings {
   id            String   @id
+  ownerId       String   @unique @map("owner_id")
   displayName   String   @default("ANGIE Y JORDAN") @map("display_name")
   monthlyBudget BigInt   @default(1500000) @map("monthly_budget")
   activeMonth   DateTime @map("active_month") @db.Date
@@ -22,7 +23,8 @@ model WalletSettings {
 }
 
 model ExpenseRecord {
-  id          String    @id
+  ownerId     String    @map("owner_id")
+  id          String
   amount      BigInt
   category    String
   spentOn     DateTime  @map("spent_on") @db.Date
@@ -31,13 +33,15 @@ model ExpenseRecord {
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
 
-  @@index([spentOn(sort: Desc), createdAt(sort: Desc)], map: "expenses_spent_on_created_at_prisma_idx")
+  @@id([ownerId, id])
+  @@index([ownerId, spentOn(sort: Desc), createdAt(sort: Desc)], map: "expenses_owner_spent_on_created_at_idx")
   @@map("expenses")
   @@schema("billetera")
 }
 
 model MonthlyArchive {
-  monthStart          DateTime @id @map("month_start") @db.Date
+  ownerId            String   @map("owner_id")
+  monthStart          DateTime @map("month_start") @db.Date
   monthlyBudget       BigInt   @map("monthly_budget")
   totalSpent          BigInt   @map("total_spent")
   expenseCount        BigInt   @map("expense_count")
@@ -46,6 +50,7 @@ model MonthlyArchive {
   deletedExpenses     Json     @map("deleted_expenses")
   archivedAt          DateTime @default(now()) @map("archived_at") @db.Timestamptz(6)
 
+  @@id([ownerId, monthStart])
   @@map("monthly_archives")
   @@schema("billetera")
 }

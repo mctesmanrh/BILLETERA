@@ -37,29 +37,14 @@ import { motion, AnimatePresence } from "motion/react";
 import BackupManager from "./components/BackupManager";
 import UserMenu from "./components/UserMenu";
 
-const DEFAULT_DISPLAY_NAME = "ANGIE Y JORDAN";
-
-function readStoredExpenses(key: string): Expense[] {
-  try {
-    const saved = localStorage.getItem(key);
-    const parsed: unknown = saved ? JSON.parse(saved) : [];
-    return Array.isArray(parsed) ? (parsed as Expense[]) : [];
-  } catch {
-    localStorage.removeItem(key);
-    return [];
-  }
-}
-
-function readStoredReports(): MonthlyReportSummary[] {
-  try {
-    const saved = localStorage.getItem("monthlyReports");
-    const parsed: unknown = saved ? JSON.parse(saved) : [];
-    return Array.isArray(parsed) ? (parsed as MonthlyReportSummary[]) : [];
-  } catch {
-    localStorage.removeItem("monthlyReports");
-    return [];
-  }
-}
+const LEGACY_CACHE_KEYS = [
+  "walletDisplayName",
+  "monthlyBudget",
+  "expenses",
+  "deletedExpenses",
+  "activeMonth",
+  "monthlyReports",
+];
 
 async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, init);
@@ -80,28 +65,21 @@ interface AppProps {
 }
 
 export default function App({ currentUser, csrfToken }: AppProps) {
-  const [displayName, setDisplayName] = useState(
-    () => localStorage.getItem("walletDisplayName") || DEFAULT_DISPLAY_NAME,
-  );
+  const defaultDisplayName = (currentUser.name || "MI BILLETERA")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLocaleUpperCase("es-CO");
+  const [displayName, setDisplayName] = useState(defaultDisplayName);
   const [displayNameDraft, setDisplayNameDraft] = useState(displayName);
   const [isEditingDisplayName, setIsEditingDisplayName] = useState(false);
   const [isSavingDisplayName, setIsSavingDisplayName] = useState(false);
-  const [monthlyBudget, setMonthlyBudget] = useState<number>(() => {
-    const saved = localStorage.getItem("monthlyBudget");
-    return saved ? Number(saved) : 1500000;
-  });
-  const [expenses, setExpenses] = useState<Expense[]>(() =>
-    readStoredExpenses("expenses"),
+  const [monthlyBudget, setMonthlyBudget] = useState<number>(1500000);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [deletedExpenses, setDeletedExpenses] = useState<Expense[]>([]);
+  const [activeMonth, setActiveMonth] = useState<string>(
+    getColombiaCurrentMonthStart(),
   );
-  const [deletedExpenses, setDeletedExpenses] = useState<Expense[]>(() =>
-    readStoredExpenses("deletedExpenses"),
-  );
-  const [activeMonth, setActiveMonth] = useState<string>(() =>
-    localStorage.getItem("activeMonth") || getColombiaCurrentMonthStart(),
-  );
-  const [monthlyReports, setMonthlyReports] = useState<MonthlyReportSummary[]>(
-    readStoredReports,
-  );
+  const [monthlyReports, setMonthlyReports] = useState<MonthlyReportSummary[]>([]);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const budgetSaveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -112,7 +90,7 @@ export default function App({ currentUser, csrfToken }: AppProps) {
   const [isBackupOpen, setIsBackupOpen] = useState(false);
 
   const applySnapshot = (snapshot: WalletSnapshot) => {
-    const nextDisplayName = snapshot.displayName || DEFAULT_DISPLAY_NAME;
+    const nextDisplayName = snapshot.displayName || defaultDisplayName;
     setDisplayName(nextDisplayName);
     setDisplayNameDraft(nextDisplayName);
     setMonthlyBudget(snapshot.monthlyBudget);
@@ -120,19 +98,11 @@ export default function App({ currentUser, csrfToken }: AppProps) {
     setDeletedExpenses(snapshot.deletedExpenses);
     setActiveMonth(snapshot.activeMonth);
     setMonthlyReports(snapshot.monthlyReports);
-    localStorage.setItem("walletDisplayName", nextDisplayName);
-    localStorage.setItem("monthlyBudget", snapshot.monthlyBudget.toString());
-    localStorage.setItem("expenses", JSON.stringify(snapshot.expenses));
-    localStorage.setItem(
-      "deletedExpenses",
-      JSON.stringify(snapshot.deletedExpenses),
-    );
-    localStorage.setItem("activeMonth", snapshot.activeMonth);
-    localStorage.setItem("monthlyReports", JSON.stringify(snapshot.monthlyReports));
   };
 
   useEffect(() => {
     let active = true;
+    LEGACY_CACHE_KEYS.forEach((key) => localStorage.removeItem(key));
 
     requestJson<WalletSnapshot>("/api/data")
       .then((snapshot) => {
@@ -143,9 +113,7 @@ export default function App({ currentUser, csrfToken }: AppProps) {
       .catch((error: Error) => {
         if (!active) return;
         console.error("No fue posible cargar PostgreSQL:", error);
-        setSyncError(
-          `${error.message} Se muestran los últimos datos guardados en este navegador.`,
-        );
+        setSyncError(error.message);
       })
       .finally(() => {
         if (active) setIsLoadingData(false);
@@ -166,7 +134,6 @@ export default function App({ currentUser, csrfToken }: AppProps) {
 
   const handleChangeBudget = (newBudget: number) => {
     setMonthlyBudget(newBudget);
-    localStorage.setItem("monthlyBudget", newBudget.toString());
 
     if (budgetSaveTimeout.current) {
       clearTimeout(budgetSaveTimeout.current);
@@ -218,7 +185,6 @@ export default function App({ currentUser, csrfToken }: AppProps) {
       });
       setDisplayName(result.displayName);
       setDisplayNameDraft(result.displayName);
-      localStorage.setItem("walletDisplayName", result.displayName);
       setIsEditingDisplayName(false);
       setSyncError(null);
     } catch (error) {
