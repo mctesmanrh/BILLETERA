@@ -74,6 +74,7 @@ flowchart LR
 │   ├── claim-legacy-wallet-owner.ts
 │   ├── import-expenses-only.ts
 │   ├── test-wallet-isolation.ts
+│   ├── transfer-wallet-owner.ts
 │   └── macos/
 │       └── com.jordan.tu-billetera.plist
 ├── src/
@@ -119,6 +120,9 @@ Responsabilidades:
   billeteras existentes.
 - `scripts/test-wallet-isolation.ts`: comprueba separación de nombres,
   presupuestos, gastos e identificadores entre dos propietarios.
+- `scripts/transfer-wallet-owner.ts`: mueve una billetera completa entre dos
+  cuentas Auth.js en una transacción, exige un destino sin gastos ni informes y
+  crea una copia local antes de aplicar.
 - `scripts/macos/com.jordan.tu-billetera.plist`: servicio de usuario que mantiene
   la aplicación local activa en macOS.
 
@@ -331,6 +335,11 @@ lsof -nP -iTCP:3002 -sTCP:LISTEN
 - La billetera histórica de Production fue asignada a la cuenta principal sin
   cambiar su contenido: 6 gastos vigentes y 3 informes conservaron sus datos y
   solo recibieron el propietario Auth.js correspondiente.
+- El 5 de noviembre de 2026 esa billetera completa se transfirió de la cuenta
+  `mctesmanrh@gmail.com` a `giozulsanty2013@gmail.com`: el destino conservó el
+  nombre `EDWIN ORTEGA`, el presupuesto, 6 gastos y 3 informes. La cuenta de
+  origen creó después una billetera nueva sin movimientos. La operación dejó
+  una copia recuperable en Descargas.
 - El mes y los importes son estado dinámico. El 2 de noviembre de 2026 la
   sesión autorizada confirmó el periodo `2026-11-01`; para valores vigentes se
   debe consultar la API o PostgreSQL.
@@ -447,6 +456,14 @@ faltantes y preservó presupuesto, mes activo, informes, papelera y sesiones.
 Es un antecedente histórico, no una descripción del saldo vigente. El modo
 normal es simulación; `--apply` habilita la escritura y `--production` exige que
 Vercel confirme `VERCEL_ENV=production`.
+
+Para transferir una billetera completa entre cuentas Auth.js se usa
+`npm run db:transfer-wallet` con `BILLETERA_SOURCE_EMAIL` y
+`BILLETERA_TARGET_EMAIL`. El modo normal es una simulación. `--apply` exige una
+ruta absoluta mediante `--backup`, guarda configuración, gastos e informes de
+ambas cuentas y después cambia el propietario dentro de una sola transacción.
+El destino puede tener su configuración inicial, pero debe estar libre de
+gastos e informes; si contiene alguno, el script aborta sin mezclar datos.
 
 Los borrados definitivos y la importación completa son operaciones destructivas,
 por lo que la interfaz mantiene confirmaciones y copias JSON recuperables.
