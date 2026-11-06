@@ -1,30 +1,44 @@
 import React, { useState, useEffect } from "react";
 import { Expense } from "../types";
-import { CATEGORIES, getColombiaTodayDateString } from "../data";
+import {
+  CATEGORIES,
+  formatMonthYearSpanish,
+  getColombiaTodayDateString,
+  getMonthEndDateString,
+} from "../data";
 import { ArrowLeft, Save, Calendar, FileText, Clock } from "lucide-react";
 import { motion } from "motion/react";
 
 interface NewExpenseFormProps {
   onSave: (expense: Omit<Expense, "id">) => Promise<void>;
   onCancel: () => void;
+  activeMonth: string;
 }
 
-export default function NewExpenseForm({ onSave, onCancel }: NewExpenseFormProps) {
+export default function NewExpenseForm({
+  onSave,
+  onCancel,
+  activeMonth,
+}: NewExpenseFormProps) {
   const [amount, setAmount] = useState<string>("");
   const [displayAmount, setDisplayAmount] = useState<string>("");
   const [category, setCategory] = useState<string>("alimentacion");
   const [description, setDescription] = useState<string>("");
-  const [date, setDate] = useState<string>(() => getColombiaTodayDateString());
+  const [date, setDate] = useState<string>(() => {
+    const today = getColombiaTodayDateString();
+    return today.startsWith(activeMonth.slice(0, 7)) ? today : activeMonth;
+  });
   const [error, setError] = useState<string>("");
   const [isSaving, setIsSaving] = useState(false);
 
-  // Keep date updated with Colombia local calendar time
   useEffect(() => {
     const todayCo = getColombiaTodayDateString();
-    if (todayCo && !date) {
-      setDate(todayCo);
+    if (!date.startsWith(activeMonth.slice(0, 7))) {
+      setDate(todayCo.startsWith(activeMonth.slice(0, 7)) ? todayCo : activeMonth);
     }
-  }, []);
+  }, [activeMonth, date]);
+
+  const monthEnd = getMonthEndDateString(activeMonth);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,7 +91,9 @@ export default function NewExpenseForm({ onSave, onCancel }: NewExpenseFormProps
         </button>
         <div>
           <h2 className="text-xl font-bold text-slate-800">Nuevo Gasto</h2>
-          <p className="text-xs text-slate-400">Registra tu pago de inmediato</p>
+          <p className="text-xs text-slate-400">
+            Registra tu pago de {formatMonthYearSpanish(activeMonth)}
+          </p>
         </div>
       </div>
 
@@ -184,13 +200,18 @@ export default function NewExpenseForm({ onSave, onCancel }: NewExpenseFormProps
               <input
                 type="date"
                 value={date}
+                min={activeMonth}
+                max={monthEnd}
                 onChange={(e) => setDate(e.target.value)}
                 className="w-full pl-11 pr-4 py-3 rounded-2xl border border-slate-200 text-slate-800 text-sm focus:outline-hidden focus:ring-4 focus:ring-slate-100 focus:border-slate-400 transition-all font-mono font-medium"
               />
             </div>
             <button
               type="button"
-              onClick={() => setDate(getColombiaTodayDateString())}
+              onClick={() => {
+                const today = getColombiaTodayDateString();
+                setDate(today.startsWith(activeMonth.slice(0, 7)) ? today : activeMonth);
+              }}
               className="px-3 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-2xl transition-colors shrink-0"
               title="Restablecer a la fecha de hoy en Colombia"
             >

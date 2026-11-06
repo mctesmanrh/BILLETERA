@@ -8,22 +8,43 @@ import NewExpenseForm from "./components/NewExpenseForm";
 import MovementsList from "./components/MovementsList";
 import ExpenseDetail from "./components/ExpenseDetail";
 import TrashBin from "./components/TrashBin";
-import type { Expense, WalletSnapshot } from "./types";
-import { getDailyExpensesSummary } from "./data";
-import { PiggyBank, Plus, List, LayoutDashboard, Trash, Download } from "lucide-react";
+import type {
+  Expense,
+  MonthlyReport,
+  MonthlyReportSummary,
+  WalletData,
+  WalletSnapshot,
+  AuthUser,
+} from "./types";
+import {
+  formatMonthYearSpanish,
+  getColombiaCurrentMonthStart,
+  getDailyExpensesSummary,
+} from "./data";
+import {
+  Check,
+  Download,
+  LayoutDashboard,
+  List,
+  LoaderCircle,
+  Pencil,
+  PiggyBank,
+  Plus,
+  Trash,
+  X,
+} from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import BackupManager from "./components/BackupManager";
+import UserMenu from "./components/UserMenu";
 
-function readStoredExpenses(key: string): Expense[] {
-  try {
-    const saved = localStorage.getItem(key);
-    const parsed: unknown = saved ? JSON.parse(saved) : [];
-    return Array.isArray(parsed) ? (parsed as Expense[]) : [];
-  } catch {
-    localStorage.removeItem(key);
-    return [];
-  }
-}
+const LEGACY_CACHE_KEYS = [
+  "walletDisplayName",
+  "monthlyBudget",
+  "expenses",
+  "deletedExpenses",
+  "activeMonth",
+  "monthlyReports",
+];
 
 async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, init);
@@ -38,17 +59,27 @@ async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
   return payload as T;
 }
 
-export default function App() {
-  const [monthlyBudget, setMonthlyBudget] = useState<number>(() => {
-    const saved = localStorage.getItem("monthlyBudget");
-    return saved ? Number(saved) : 1500000;
-  });
-  const [expenses, setExpenses] = useState<Expense[]>(() =>
-    readStoredExpenses("expenses"),
+interface AppProps {
+  currentUser: AuthUser;
+  csrfToken: string;
+}
+
+export default function App({ currentUser, csrfToken }: AppProps) {
+  const defaultDisplayName = (currentUser.name || "MI BILLETERA")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLocaleUpperCase("es-CO");
+  const [displayName, setDisplayName] = useState(defaultDisplayName);
+  const [displayNameDraft, setDisplayNameDraft] = useState(displayName);
+  const [isEditingDisplayName, setIsEditingDisplayName] = useState(false);
+  const [isSavingDisplayName, setIsSavingDisplayName] = useState(false);
+  const [monthlyBudget, setMonthlyBudget] = useState<number>(1500000);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [deletedExpenses, setDeletedExpenses] = useState<Expense[]>([]);
+  const [activeMonth, setActiveMonth] = useState<string>(
+    getColombiaCurrentMonthStart(),
   );
-  const [deletedExpenses, setDeletedExpenses] = useState<Expense[]>(() =>
-    readStoredExpenses("deletedExpenses"),
-  );
+  const [monthlyReports, setMonthlyReports] = useState<MonthlyReportSummary[]>([]);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const budgetSaveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -59,19 +90,19 @@ export default function App() {
   const [isBackupOpen, setIsBackupOpen] = useState(false);
 
   const applySnapshot = (snapshot: WalletSnapshot) => {
+    const nextDisplayName = snapshot.displayName || defaultDisplayName;
+    setDisplayName(nextDisplayName);
+    setDisplayNameDraft(nextDisplayName);
     setMonthlyBudget(snapshot.monthlyBudget);
     setExpenses(snapshot.expenses);
     setDeletedExpenses(snapshot.deletedExpenses);
-    localStorage.setItem("monthlyBudget", snapshot.monthlyBudget.toString());
-    localStorage.setItem("expenses", JSON.stringify(snapshot.expenses));
-    localStorage.setItem(
-      "deletedExpenses",
-      JSON.stringify(snapshot.deletedExpenses),
-    );
+    setActiveMonth(snapshot.activeMonth);
+    setMonthlyReports(snapshot.monthlyReports);
   };
 
   useEffect(() => {
     let active = true;
+    LEGACY_CACHE_KEYS.forEach((key) => localStorage.removeItem(key));
 
     requestJson<WalletSnapshot>("/api/data")
       .then((snapshot) => {
@@ -81,10 +112,8 @@ export default function App() {
       })
       .catch((error: Error) => {
         if (!active) return;
-        console.error("No fue posible cargar Supabase:", error);
-        setSyncError(
-          `${error.message} Se muestran los últimos datos guardados en este navegador.`,
-        );
+        console.error("No fue posible cargar PostgreSQL:", error);
+        setSyncError(error.message);
       })
       .finally(() => {
         if (active) setIsLoadingData(false);
@@ -105,7 +134,6 @@ export default function App() {
 
   const handleChangeBudget = (newBudget: number) => {
     setMonthlyBudget(newBudget);
-    localStorage.setItem("monthlyBudget", newBudget.toString());
 
     if (budgetSaveTimeout.current) {
       clearTimeout(budgetSaveTimeout.current);
@@ -125,7 +153,52 @@ export default function App() {
     }, 400);
   };
 
-  const handleImportData = async (snapshot: WalletSnapshot) => {
+  const cancelDisplayNameEdit = () => {
+    setDisplayNameDraft(displayName);
+    setIsEditingDisplayName(false);
+    setSyncError(null);
+  };
+
+  const handleSaveDisplayName = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (isSavingDisplayName) return;
+
+    const normalizedName = displayNameDraft.trim().replace(/\s+/g, " ");
+    if (!normalizedName) {
+      setSyncError("Escribe un nombre antes de guardarlo.");
+      return;
+    }
+    if (normalizedName === displayName) {
+      cancelDisplayNameEdit();
+      return;
+    }
+
+    setIsSavingDisplayName(true);
+    try {
+      const result = await requestJson<{
+        success: true;
+        displayName: string;
+      }>("/api/settings/name", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ displayName: normalizedName }),
+      });
+      setDisplayName(result.displayName);
+      setDisplayNameDraft(result.displayName);
+      setIsEditingDisplayName(false);
+      setSyncError(null);
+    } catch (error) {
+      setSyncError(
+        error instanceof Error
+          ? error.message
+          : "No se pudo guardar el nombre de la billetera.",
+      );
+    } finally {
+      setIsSavingDisplayName(false);
+    }
+  };
+
+  const handleImportData = async (snapshot: WalletData) => {
     try {
       const imported = await requestJson<WalletSnapshot & { success: true }>(
         "/api/import",
@@ -147,17 +220,16 @@ export default function App() {
 
   const totalSpent = expenses.reduce((sum, exp) => sum + exp.amount, 0);
   const availableBalance = monthlyBudget - totalSpent;
-  const dailyChartData = getDailyExpensesSummary(expenses);
+  const dailyChartData = getDailyExpensesSummary(expenses, activeMonth);
 
   const handleSaveExpense = async (newExpense: Omit<Expense, "id">) => {
     try {
-      const result = await requestJson<{ expenses: Expense[] }>("/api/expenses", {
+      const result = await requestJson<WalletSnapshot & { expense: Expense }>("/api/expenses", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ expense: newExpense }),
       });
-      setExpenses(result.expenses);
-      localStorage.setItem("expenses", JSON.stringify(result.expenses));
+      applySnapshot(result);
       setCurrentView("dashboard");
       setSyncError(null);
     } catch (error) {
@@ -235,14 +307,81 @@ export default function App() {
               <div className="w-10 h-10 bg-slate-900 rounded-2xl flex items-center justify-center text-white">
                 <PiggyBank className="w-5 h-5" />
               </div>
-              <div>
-                <h1 className="text-2xl font-bold tracking-tight text-slate-800">GASTOS MENSUALES  ANGIE Y JORDAN</h1>
+              <div className="min-w-0">
+                <p className="text-2xl font-bold leading-tight tracking-tight text-slate-800">
+                  GASTOS MENSUALES
+                </p>
+                {isEditingDisplayName ? (
+                  <form
+                    onSubmit={handleSaveDisplayName}
+                    className="mt-0.5 flex max-w-full items-center gap-1.5"
+                  >
+                    <label htmlFor="wallet-display-name" className="sr-only">
+                      Nombre de la billetera
+                    </label>
+                    <input
+                      id="wallet-display-name"
+                      autoFocus
+                      maxLength={60}
+                      value={displayNameDraft}
+                      onChange={(event) => setDisplayNameDraft(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Escape") cancelDisplayNameEdit();
+                      }}
+                      className="min-w-0 w-full max-w-72 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xl font-bold leading-tight tracking-tight text-slate-800 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+                    />
+                    <button
+                      type="submit"
+                      disabled={isSavingDisplayName}
+                      aria-label="Guardar nombre"
+                      title="Guardar"
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-900 text-white transition hover:bg-slate-700 disabled:cursor-wait disabled:opacity-60"
+                    >
+                      {isSavingDisplayName ? (
+                        <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Check className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={cancelDisplayNameEdit}
+                      disabled={isSavingDisplayName}
+                      aria-label="Cancelar edición del nombre"
+                      title="Cancelar"
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:opacity-50"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </form>
+                ) : (
+                  <div className="group mt-0.5 flex min-w-0 items-center gap-1.5">
+                    <h1 className="truncate text-2xl font-bold leading-tight tracking-tight text-slate-800">
+                      {displayName}
+                    </h1>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDisplayNameDraft(displayName);
+                        setIsEditingDisplayName(true);
+                      }}
+                      aria-label="Editar nombre de la billetera"
+                      title="Editar nombre"
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:bg-slate-100 focus-visible:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                )}
                 <p className="text-slate-500 text-xs font-sans">Control rápido e inteligente de tus gastos</p>
               </div>
             </div>
 
-            {/* View Switch Navigation */}
-            <div className="flex items-center gap-2 bg-white p-1 rounded-2xl border border-slate-200/80 shadow-xs">
+            <div className="flex flex-col items-end gap-2">
+              <UserMenu user={currentUser} csrfToken={csrfToken} />
+
+              {/* View Switch Navigation */}
+              <div className="flex items-center gap-2 bg-white p-1 rounded-2xl border border-slate-200/80 shadow-xs">
               <button
                 onClick={() => setCurrentView('dashboard')}
                 className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
@@ -301,12 +440,13 @@ export default function App() {
               <button
                 onClick={() => setIsBackupOpen(true)}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all cursor-pointer bg-amber-50 text-amber-800 hover:bg-amber-100/80 border border-amber-200/80"
-                title="Copia de seguridad en tu PC"
+                title="Copias e informes mensuales"
                 id="btn-nav-backup"
               >
                 <Download className="w-3.5 h-3.5 text-amber-600" />
-                <span>Copia PC</span>
+                <span>Informes</span>
               </button>
+              </div>
             </div>
           </header>
 
@@ -323,7 +463,7 @@ export default function App() {
               <span>
                 {syncError
                   ? syncError
-                  : "Conectando con la base de datos Supabase…"}
+                  : "Conectando con la base de datos PostgreSQL…"}
               </span>
               {syncError && (
                 <button
@@ -351,8 +491,12 @@ export default function App() {
                 {/* Header Action Row */}
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                   <div>
-                    <h2 className="text-xl font-bold tracking-tight text-slate-800">Mi Presupuesto Activo</h2>
-                    <p className="text-sm text-slate-400">Resumen y estado de cuenta al día</p>
+                    <h2 className="text-xl font-bold tracking-tight text-slate-800">
+                      Mi Presupuesto Activo
+                    </h2>
+                    <p className="text-sm text-slate-400">
+                      {formatMonthYearSpanish(activeMonth)} · reinicio mensual automático
+                    </p>
                   </div>
                   
                   {/* Primary button to trigger "Nuevo Gasto" in under 1 second */}
@@ -371,6 +515,7 @@ export default function App() {
                   monthlyBudget={monthlyBudget} 
                   totalSpent={totalSpent} 
                   availableBalance={availableBalance} 
+                  activeMonth={activeMonth}
                 />
 
                 {/* Main Workspace Layout Grid */}
@@ -440,6 +585,7 @@ export default function App() {
                 <NewExpenseForm
                   onSave={handleSaveExpense}
                   onCancel={() => setCurrentView('dashboard')}
+                  activeMonth={activeMonth}
                 />
               </motion.div>
             )}
@@ -543,7 +689,7 @@ export default function App() {
         {/* Decorative Theme Footer */}
         <footer className="mt-12 pt-6 border-t border-slate-200/80 flex flex-col sm:flex-row justify-between items-center gap-4">
           <p className="text-[10px] text-slate-300 font-bold uppercase tracking-[0.2em] text-center sm:text-left">
-            Presupuesto mensual inteligente • Supabase • Sistema v.1.1
+            Presupuesto mensual inteligente • PostgreSQL Prisma ORM • Google Auth • Sistema v.2.0
           </p>
           <div className="h-1 w-24 bg-slate-200 rounded-full"></div>
         </footer>
@@ -557,7 +703,12 @@ export default function App() {
         monthlyBudget={monthlyBudget}
         expenses={expenses}
         deletedExpenses={deletedExpenses}
+        activeMonth={activeMonth}
+        monthlyReports={monthlyReports}
         onImportData={handleImportData}
+        onLoadMonthlyReport={(monthStart) =>
+          requestJson<MonthlyReport>(`/api/reports/${monthStart.slice(0, 7)}`)
+        }
       />
     </div>
   );

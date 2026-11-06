@@ -2,225 +2,165 @@
 
 ## 1. Resumen
 
-Tu Billetera es una aplicación web personal para registrar y visualizar los gastos mensuales de Angie y Jordan en pesos colombianos (COP). Su objetivo es responder rápidamente tres preguntas:
+Tu Billetera es una aplicación web personal para registrar y visualizar los
+gastos mensuales de cada usuario en pesos colombianos (COP). La página permite
+conocer el presupuesto del mes, cuánto se ha gastado y cuánto queda disponible.
 
-1. ¿Cuál es el presupuesto mensual?
-2. ¿Cuánto se ha gastado?
-3. ¿Cuánto dinero queda disponible?
+Al comenzar un mes nuevo, el periodo anterior se cierra automáticamente. Sus
+movimientos pasan a un informe histórico descargable y el mes vigente vuelve a
+mostrar el presupuesto completo, sin mezclar gastos entre meses.
 
-La interfaz también permite consultar movimientos, analizar el gasto por día y categoría, eliminar o restaurar registros y descargar copias de seguridad.
+Esta descripción refleja el comportamiento implementado al 5 de noviembre de
+2026. La versión local se abre en `http://127.0.0.1:3002` y la versión pública
+está en `https://billetera-pearl.vercel.app`. Este alias apunta al proyecto
+exclusivo `tu-billetera-angie-jordan`, cuya API usa PostgreSQL con Prisma ORM;
+ya no apunta al despliegue antiguo que dependía de Supabase.
 
-Esta descripción refleja el comportamiento implementado en el código al 29 de julio de 2026. Los límites técnicos y las diferencias entre la intención y el funcionamiento actual se detallan en `docs/ARQUITECTURA_TECNICA.md`.
+## 2. Inicio de sesión
 
-## 2. Público y propósito
+Al entrar, la página consulta la sesión. Si no existe, muestra una pantalla de
+bienvenida con el botón **Continuar con Google** y no solicita ni muestra ningún
+dato financiero. Solo pueden entrar cuentas verificadas incluidas en la lista de
+correos autorizados. El inicio de sesión de Production está activo para
+`mctesmanrh@gmail.com` y `giozulsanty2013@gmail.com`; cualquier cuenta adicional
+debe agregarse tanto en Google como en la lista privada de Vercel.
 
-La página está planteada como una billetera compartida, sencilla y doméstica para Angie y Jordan. No es una plataforma bancaria ni contable: se concentra en controlar un único presupuesto y una lista común de gastos.
+Después de iniciar sesión, la cabecera muestra la foto, nombre y correo de la
+cuenta. El menú de usuario permite cerrar la sesión y volver a la pantalla de
+acceso sin conservar datos financieros en el navegador.
 
-Sus objetivos de uso son:
+Cada cuenta autorizada tiene una billetera privada. El nombre, presupuesto,
+gastos, papelera e informes de una cuenta no se consultan ni se modifican desde
+otra cuenta. Una cuenta nueva comienza con su propio presupuesto y sin
+movimientos; el encabezado usa inicialmente el nombre de Google y después cada
+usuario puede personalizarlo sin cambiar el nombre de nadie más.
 
-- Registrar un gasto en pocos pasos.
-- Conocer el saldo restante sin hacer cálculos manuales.
-- Identificar los días y las categorías con mayor consumo.
-- Buscar gastos anteriores.
-- Recuperar un gasto borrado por error.
-- Conservar o trasladar la información mediante archivos JSON y CSV.
+## 3. Navegación
 
-## 3. Estructura general
+La aplicación funciona como una página única y tiene cinco áreas principales:
 
-La aplicación funciona como una página única. Las secciones cambian dentro de la misma pantalla y no tienen URL propia.
+- **Dashboard:** resumen del presupuesto y gráficos del mes vigente.
+- **Movimientos:** búsqueda, filtros y detalle de los gastos activos.
+- **Nuevo Gasto:** registro de un movimiento dentro del mes activo.
+- **Papelera:** restauración o eliminación definitiva de gastos.
+- **Informes:** copias JSON, exportación CSV e informes de meses cerrados.
 
-### Encabezado y navegación
+En pantallas pequeñas algunos textos se ocultan, pero los iconos y las acciones
+principales permanecen disponibles.
 
-El encabezado muestra:
+## 4. Dashboard
 
-- Un ícono de alcancía.
-- El título “GASTOS MENSUALES ANGIE Y JORDAN”.
-- El mensaje “Control rápido e inteligente de tus gastos”.
-- Accesos a Dashboard, Movimientos, Nuevo Gasto, Papelera y Copia PC.
+Es la vista inicial. Presenta:
 
-En pantallas pequeñas se ocultan algunos textos de navegación, pero se conservan los íconos y las acciones principales.
+- Un nombre personal editable en la cabecera. El lápiz abre una edición en
+  línea; el visto bueno o la tecla Enter guarda el cambio y la X o Escape lo
+  cancela. El nombre se conserva en PostgreSQL únicamente para el usuario
+  autenticado.
+- El nombre dinámico del mes activo.
+- Presupuesto, Gastado y Disponible.
+- La fórmula `Presupuesto - Gastos = Saldo disponible`.
+- Un gráfico de barras con el gasto acumulado por día del mes vigente.
+- Un control numérico y un deslizador para cambiar el presupuesto mensual.
+- Una barra de porcentaje consumido.
+- Los cinco movimientos más recientes.
 
-### Dashboard
+Cuando el mes no tiene gastos, aparece un estado vacío y un acceso para registrar
+el primero.
 
-Es la vista inicial y presenta el estado general del presupuesto.
+## 5. Nuevo Gasto
 
-Incluye:
+El formulario solicita monto, categoría, descripción y fecha. La fecha se inicia
+con el día actual de Colombia y solo admite días pertenecientes al mes activo.
+El monto debe ser un entero mayor a cero y la descripción es obligatoria.
 
-- Un botón principal para registrar un gasto.
-- Tres tarjetas con Presupuesto, Gastado y Disponible.
-- Una barra que explica la fórmula `Presupuesto - Gastos = Saldo disponible`.
-- Un gráfico de barras con el monto acumulado por día.
-- Un control numérico y un deslizador para modificar el límite mensual.
-- Una barra de presupuesto consumido con alertas de estado.
-- Una lista de los cinco movimientos más recientes.
+Las categorías disponibles son:
 
-Cuando no existen gastos, el gráfico se reemplaza por un estado vacío con un llamado a registrar el primer gasto.
+| Código | Nombre visible |
+| --- | --- |
+| `alimentacion` | Alimentación |
+| `transporte` | Transporte |
+| `servicios` | Servicios del Hogar |
+| `salud` | Salud & Farmacia |
+| `entretenimiento` | Entretenimiento |
+| `otros` | Otros Gastos |
 
-### Nuevo Gasto
+## 6. Movimientos y papelera
 
-El formulario solicita:
+Movimientos agrupa los gastos por fecha, permite buscar por descripción, filtrar
+por categoría, ver el total diario y abrir un comprobante con el detalle.
 
-- Monto en COP.
-- Una de las seis categorías disponibles.
-- Descripción del gasto.
-- Fecha, inicializada con la fecha actual de Colombia.
+Al eliminar un gasto se envía primero a la papelera. Desde allí se puede
+restaurar, borrar de forma permanente o vaciar toda la papelera. Las acciones
+destructivas requieren confirmación.
 
-El monto se muestra con separadores de miles. La validación visible exige que el monto sea mayor que cero y que exista una descripción. Al guardar, la interfaz vuelve al Dashboard.
+## 7. Informes y copias
 
-### Movimientos
+La ventana **Informes** reúne cuatro capacidades:
 
-Esta vista muestra todos los gastos activos ordenados del más reciente al más antiguo y agrupados por fecha.
+- Descargar un respaldo JSON del estado actual.
+- Restaurar un respaldo JSON.
+- Exportar los gastos activos a CSV.
+- Descargar el documento de cualquier mes cerrado.
 
-Permite:
+El documento mensual es un archivo HTML autónomo con:
 
-- Buscar por descripción.
-- Filtrar por categoría.
-- Ver el total gastado de cada día.
-- Desplegar un Top 5 de categorías por monto.
-- Abrir el detalle de cualquier movimiento.
+- Mes informado.
+- Presupuesto, total gastado y saldo final.
+- Cantidad de gastos activos y eliminados.
+- Tabla de movimientos activos.
+- Tabla separada de movimientos que estaban en la papelera.
 
-Si los filtros no producen resultados, aparece un mensaje específico. Si la billetera completa está vacía, la aplicación presenta un estado vacío con acceso directo al formulario.
+El archivo puede abrirse en el navegador, imprimirse o guardarse como PDF. Su
+nombre usa el formato `informe_tu_billetera_YYYY-MM.html`.
 
-### Detalle de un gasto
+## 8. Cambio automático de mes
 
-El detalle simula un comprobante y contiene:
+La página usa la zona horaria `America/Bogota`. Al abrir la aplicación o efectuar
+una escritura, la API compara el mes actual con el periodo guardado en
+PostgreSQL. Si cambió:
 
-- Identificador interno.
-- Categoría e ícono.
-- Monto.
-- Descripción.
-- Fecha.
-- Acción para enviar el registro a la papelera.
+1. Archiva cada mes pendiente con su presupuesto y movimientos.
+2. Guarda un resumen descargable del periodo cerrado.
+3. Retira esos movimientos de la lista activa.
+4. Activa el mes actual con cero gastado y el presupuesto configurado disponible.
 
-La eliminación requiere una confirmación previa.
+La operación es transaccional, idempotente y aislada por usuario: varias
+solicitudes simultáneas no crean cierres duplicados ni mezclan periodos de otras
+cuentas.
 
-### Papelera
+## 9. Persistencia percibida
 
-Los gastos eliminados se trasladan primero a una papelera recuperable.
+PostgreSQL, consultado mediante Prisma ORM, es la fuente de verdad. React conserva
+los datos financieros únicamente en memoria durante la sesión visible; no deja
+presupuestos ni movimientos en `localStorage`, lo que evita mostrar información
+de una cuenta anterior al cambiar de usuario en el mismo navegador. En
+producción, los datos viven dentro del esquema aislado `billetera` del
+PostgreSQL Prisma ORM existente.
 
-Desde esta vista se puede:
+Los respaldos JSON siguen siendo útiles para recuperación o traslado. La
+importación reemplaza los gastos dentro de una transacción y cierra de inmediato
+los meses anteriores que contenga la copia.
 
-- Consultar el monto total y la cantidad de elementos eliminados.
-- Restaurar un gasto a la lista principal.
-- Eliminar un gasto de forma permanente, con confirmación.
-- Vaciar toda la papelera, también con confirmación.
+## 10. Reglas y cálculos
 
-El encabezado muestra una insignia con la cantidad de elementos en la papelera.
-
-### Copia de seguridad en el PC
-
-La opción “Copia PC” abre una ventana modal con tres acciones:
-
-- Descargar un respaldo JSON con presupuesto, gastos activos y gastos eliminados.
-- Cargar un respaldo JSON para restaurar los datos.
-- Exportar los gastos activos a CSV para Excel o Google Sheets.
-
-La ventana explica que Supabase conserva la información principal y que el JSON funciona como respaldo adicional para recuperación o traslado.
-
-## 4. Información y cálculos visibles
-
-La página utiliza estas reglas:
-
-- `Total gastado = suma de los montos de todos los gastos activos`.
-- `Saldo disponible = presupuesto mensual - total gastado`.
+- `Total gastado = suma de los gastos activos del mes`.
+- `Disponible = presupuesto mensual - total gastado`.
 - `Porcentaje consumido = total gastado / presupuesto × 100`.
-- `Total diario = suma de los gastos con la misma fecha`.
-- `Total por categoría = suma de los gastos de una misma categoría`.
+- `Total diario = suma de gastos con la misma fecha`.
+- `Total por categoría = suma de gastos de la misma categoría`.
 
-La barra de consumo usa tres estados visuales:
+La barra usa verde para un consumo controlado, ámbar para advertencia y rojo para
+riesgo alto o saldo negativo.
 
-- Controlado: hasta el 70 %.
-- Advertencia: más del 70 %.
-- Riesgo alto: más del 90 % o saldo negativo.
+## 11. Alcance actual
 
-El texto de estado cambia nuevamente al superar el 80 %, por lo que el color de la barra y el mensaje no comparten exactamente el mismo umbral.
+La versión actual administra una billetera privada por usuario y una moneda. No incluye
+ingresos, varias billeteras, edición de gastos, presupuestos por categoría,
+gastos recurrentes ni roles internos. Sí incluye autenticación propia con
+Google y separación completa de los datos según el identificador de la cuenta.
 
-## 5. Categorías
-
-| Código interno | Nombre visible | Color principal |
-| --- | --- | --- |
-| `alimentacion` | Alimentación | Verde |
-| `transporte` | Transporte | Ámbar |
-| `servicios` | Servicios del Hogar | Azul |
-| `salud` | Salud & Farmacia | Rosa |
-| `entretenimiento` | Entretenimiento | Morado |
-| `otros` | Otros Gastos | Gris |
-
-Las categorías son fijas; la interfaz actual no permite crearlas, renombrarlas ni eliminarlas.
-
-## 6. Diseño visual y comportamiento adaptable
-
-La identidad visual sigue un estilo limpio y minimalista:
-
-- Fondo gris muy claro y tarjetas blancas.
-- Bordes suaves, esquinas ampliamente redondeadas y sombras discretas.
-- Gris pizarra como color principal.
-- Rosa/rojo para gasto y eliminación.
-- Verde, ámbar y rojo para comunicar el estado del presupuesto.
-- Tipografía Plus Jakarta Sans para la interfaz y JetBrains Mono para cifras e identificadores.
-- Íconos de Lucide y transiciones con Motion.
-
-En escritorio, el Dashboard organiza el gráfico y los controles en dos columnas. En móvil, las tarjetas, formularios y paneles se apilan verticalmente.
-
-## 7. Persistencia percibida por el usuario
-
-Los datos se conservan en dos niveles:
-
-- En Supabase PostgreSQL como fuente principal.
-- En el almacenamiento local del navegador como caché de respaldo para mostrar la última información conocida si se pierde temporalmente la conexión.
-
-La página muestra primero la caché del navegador y luego la reemplaza con la respuesta de Supabase. Un gasto nuevo solo aparece como guardado después de que el servidor confirma la escritura. Las operaciones de papelera también actualizan la interfaz con el estado devuelto por el servidor.
-
-La importación de un JSON reemplaza el presupuesto y los gastos dentro de una transacción de base de datos. Cerrar la pestaña ya no envía copias completas ni puede sobrescribir silenciosamente cambios más recientes.
-
-En el despliegue de Vercel, las rutas `/api/*` se ejecutan como una Function de
-Node.js y reciben la configuración de Supabase únicamente desde variables de
-entorno de Producción. Por eso los cambios realizados desde la web desplegada y
-desde la ejecución local comparten la misma fuente de verdad.
-
-Si Supabase no está configurado, si se intenta usar una clave publicable en el
-servidor o si la base no responde, aparece una alerta visible y la aplicación
-conserva la última caché local para consulta.
-
-## 8. Recorrido principal
-
-1. Abrir la aplicación y revisar Presupuesto, Gastado y Disponible.
-2. Ajustar el límite mensual si es necesario.
-3. Seleccionar “Registrar Gasto” o “Nuevo Gasto”.
-4. Completar monto, categoría, descripción y fecha.
-5. Guardar y volver al Dashboard.
-6. Consultar el gráfico, el porcentaje consumido y los últimos movimientos.
-7. Entrar a Movimientos para buscar, filtrar o abrir un detalle.
-8. Enviar un gasto a la papelera, restaurarlo o eliminarlo definitivamente.
-9. Descargar periódicamente una copia JSON o una tabla CSV.
-
-## 9. Alcance actual
-
-La versión actual cubre presupuesto y gastos, pero no incluye:
-
-- Ingresos o depósitos.
-- Varias cuentas, billeteras o monedas.
-- Edición de un gasto ya creado.
-- Presupuestos por categoría.
-- Cambio de mes o historial mensual separado.
-- Gastos recurrentes.
-- Metas de ahorro, deudas o reportes contables.
-- Usuarios, inicio de sesión, permisos o privacidad por persona.
-- Sincronización segura entre varias parejas o grupos.
-
-La base de datos está cerrada al acceso directo público y el despliegue vigente
-está protegido por Vercel Authentication. La API Express no incluye autenticación
-propia, así que esa protección debe mantenerse; antes de hacer el sitio público
-se debe añadir autenticación y autorización dentro de la aplicación.
-
-Aunque la interfaz habla de un presupuesto mensual y muestra “Julio 2026”, los cálculos actuales suman todos los gastos cargados, sin filtrar por mes. El gráfico también agrega por defecto los días 1 al 14 de julio de 2026, la fecha actual de Colombia y cualquier otra fecha encontrada.
-
-## 10. Glosario
-
-- **Presupuesto:** límite de dinero configurado.
-- **Gastado:** suma de todos los registros activos.
-- **Disponible:** diferencia entre presupuesto y gastado.
-- **Movimiento:** gasto individual.
-- **Papelera:** almacenamiento temporal de gastos eliminados.
-- **Copia JSON:** respaldo completo que puede restaurarse.
-- **CSV:** tabla de gastos activos para una hoja de cálculo.
+El 12 de agosto de 2026 se transfirieron a Prisma Postgres de Production solo
+los datos de los gastos activos del respaldo de esa fecha: 12 movimientos de
+agosto por 649.200 COP. La página conserva el presupuesto de 1.500.000 COP y
+muestra 850.800 COP disponibles. No se importaron el presupuesto de la copia,
+la papelera, los informes, el mes activo ni las sesiones.

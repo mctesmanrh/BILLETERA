@@ -145,8 +145,32 @@ export function getColombiaTodayDateString(): string {
   }
 }
 
+export function getColombiaCurrentMonthStart(): string {
+  return `${getColombiaTodayDateString().slice(0, 7)}-01`;
+}
+
+export function getMonthEndDateString(monthStart: string): string {
+  const [year, month] = monthStart.split("-").map(Number);
+  const lastDay = new Date(year, month, 0).getDate();
+  return `${year}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+}
+
+export function formatMonthYearSpanish(monthStart: string): string {
+  const parsed = new Date(`${monthStart}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) return monthStart;
+
+  const label = new Intl.DateTimeFormat("es-CO", {
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(parsed);
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
 export function getDayInfo(dateStr: string) {
-  if (!dateStr) return { shortDay: "Lun", fullDay: "Lunes", dayNum: 1, monthName: "Julio" };
+  if (!dateStr) {
+    return getDayInfo(getColombiaTodayDateString());
+  }
   const parts = dateStr.split("-").map(Number);
   const year = parts[0] || 2026;
   const month = parts[1] || 7;
@@ -181,23 +205,27 @@ export function formatDateShortSpanish(dateStr: string): string {
   return `${shortDay} ${dayNum} ${monthName.slice(0, 3)}`;
 }
 
-// Helper to generate the daily chart data
-export function getDailyExpensesSummary(expenses: Expense[]): DailyExpenseSummary[] {
+// Helper to generate the daily chart data for the active wallet month.
+export function getDailyExpensesSummary(
+  expenses: Expense[],
+  activeMonth: string,
+): DailyExpenseSummary[] {
   const datesSet = new Set<string>();
-  
-  // Default sample dates
-  for (let i = 1; i <= 14; i++) {
-    const dayStr = i < 10 ? `0${i}` : `${i}`;
-    datesSet.add(`2026-07-${dayStr}`);
+  const todayColombia = getColombiaTodayDateString();
+  const currentMonth = `${todayColombia.slice(0, 7)}-01`;
+  const monthEnd = getMonthEndDateString(activeMonth);
+  const visibleLastDay = activeMonth === currentMonth
+    ? Number(todayColombia.slice(8, 10))
+    : Number(monthEnd.slice(8, 10));
+
+  for (let day = 1; day <= visibleLastDay; day += 1) {
+    datesSet.add(`${activeMonth.slice(0, 8)}${String(day).padStart(2, "0")}`);
   }
 
-  // Always include Colombia's current date
-  const todayColombia = getColombiaTodayDateString();
-  datesSet.add(todayColombia);
-
-  // Add any custom dates present in expenses
   expenses.forEach(exp => {
-    if (exp.date) datesSet.add(exp.date);
+    if (exp.date.startsWith(activeMonth.slice(0, 7))) {
+      datesSet.add(exp.date);
+    }
   });
 
   // Sort dates chronologically

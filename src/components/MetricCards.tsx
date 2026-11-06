@@ -1,5 +1,5 @@
 import React from "react";
-import { formatCurrency } from "../data";
+import { formatCurrency, formatMonthYearSpanish } from "../data";
 import { Minus, Equal } from "lucide-react";
 import { motion } from "motion/react";
 
@@ -7,9 +7,15 @@ interface MetricCardsProps {
   monthlyBudget: number;
   totalSpent: number;
   availableBalance: number;
+  activeMonth: string;
 }
 
-export default function MetricCards({ monthlyBudget, totalSpent, availableBalance }: MetricCardsProps) {
+export default function MetricCards({
+  monthlyBudget,
+  totalSpent,
+  availableBalance,
+  activeMonth,
+}: MetricCardsProps) {
   const isNegative = availableBalance < 0;
   const safeBudget = monthlyBudget > 0 ? monthlyBudget : 1;
   const spentPercentage = Math.round((totalSpent / safeBudget) * 100);
@@ -33,7 +39,9 @@ export default function MetricCards({ monthlyBudget, totalSpent, availableBalanc
               {formatCurrency(monthlyBudget)}
             </h2>
           </div>
-          <p className="text-[11px] text-slate-400 mt-4 font-sans font-medium">Establecido para Julio 2026</p>
+          <p className="text-[11px] text-slate-400 mt-4 font-sans font-medium">
+            Establecido para {formatMonthYearSpanish(activeMonth)}
+          </p>
         </motion.div>
 
         {/* Total Gastado */}
